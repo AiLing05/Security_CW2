@@ -1,40 +1,62 @@
+
+import logging
+
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from firebase_app.models import *
-from firebase_app.firebase import generate_firebase_auth_key, send_push_notification
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from Filedigital.models import *
+
+from Filedigital.models import File
+from firebase_app.models import NotificationToken, FCMTokens
+from firebase_app.firebase import (
+    generate_firebase_auth_key,
+    send_push_notification,
+)
+
+logger = logging.getLogger(__name__)
+
+
 @receiver(post_save, sender=File)
 def notify_user_on_file_upload(sender, instance, created, **kwargs):
-    if created:
-        print("Signal triggered.")
-        owner = instance.uploaded_by
-        auth_token= generate_firebase_auth_key()
+    if not created:
+        return
 
+    owner = instance.uploaded_by
+
+    def send_notification():
         try:
-            # Get the user's FCM token
-            token_entry,created = NotificationToken.objects.get_or_create(owner=owner,token=auth_token)
-            fcm_token = FCMTokens.objects.first().fcm_token
-            print(token_entry.token)
-            if created:
-                token_entry.save()
+            auth_token = generate_firebase_auth_key()
+
+            token_entry, token_created = (
+                NotificationToken.objects.get_or_create(
+                    owner=owner,
+                    token=auth_token,
+                )
+            )
+
+            fcm_entry = FCMTokens.objects.first()
+
+            if fcm_entry is None or not fcm_entry.fcm_token:
+                logger.warning(
+                    "Firebase notification skipped: no FCM token configured."
+                )
+                return
+
+            if token_created:
                 send_push_notification(
-                token_entry.token,
-                fcm_token)
+                    token_entry.token,
+                    fcm_entry.fcm_token,
+                )
 
-            # Firebase auth key (JWT or API key)
-            # auth_token = generate_firebase_auth_key()
-            print("FCM ",fcm_token)
+            logger.info(
+                "Firebase notification processing completed for %s",
+                owner.pk,
+            )
 
-            # Send notification
-            
+        except Exception:
+            logger.exception(
+                "Firebase notification failed for user %s",
+                owner.pk,
+            )
 
-            print(f"Notification sent to {owner.email}")
-
-        except Exception as e:
-            print(f"Error sending notification: {e}")
-
-
-
-
+    # Notifications run only after a successful database commit.
+    transaction.on_commit(send_notification)
