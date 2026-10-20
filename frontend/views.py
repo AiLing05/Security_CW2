@@ -1,5 +1,7 @@
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.forms import ModelForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -12,6 +14,14 @@ from django.contrib.auth.models import Group
 from django.utils import timezone
 from users.models import User
 from Filedigital.models import File, Category, FileApproval, FileActivityLog, AccessRequest
+
+
+class ProfileForm(ModelForm):
+    class Meta:
+        model = User
+        fields = ["name", "phone", "location"]
+
+
 
 
 def is_manager(user):
@@ -153,6 +163,10 @@ def approve_document(request, pk):
     if not is_manager(request.user):
         return HttpResponseForbidden('Not permitted')
     obj = get_object_or_404(File, pk=pk)
+    if obj.uploaded_by_id == request.user.pk:
+        return HttpResponseForbidden('You cannot review your own document.')
+    if request.POST.get('decision') not in ('approve', 'reject'):
+        return HttpResponseForbidden('Invalid approval decision.')
     approved = request.POST.get('decision') == 'approve'
     obj.is_approved = approved
     obj.save(update_fields=['is_approved'])
@@ -218,6 +232,31 @@ def reports(request):
 @login_required(login_url='frontend:login')
 def profile(request):
     return render(request, 'frontend/app.html', {'page': 'profile', 'manager': is_manager(request.user)})
+
+
+@login_required(login_url='frontend:login')
+def edit_profile(request):
+    form = ProfileForm(request.POST or None, instance=request.user)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Profile updated successfully.')
+        return redirect('frontend:profile')
+    return render(request, 'frontend/app.html', {
+        'page': 'edit_profile', 'form': form, 'manager': is_manager(request.user),
+    })
+
+
+@login_required(login_url='frontend:login')
+def change_password(request):
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Password changed successfully.')
+        return redirect('frontend:profile')
+    return render(request, 'frontend/app.html', {
+        'page': 'change_password', 'form': form, 'manager': is_manager(request.user),
+    })
 
 
 @require_POST

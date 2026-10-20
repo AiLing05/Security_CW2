@@ -86,11 +86,7 @@
                         {{ request.user.name|default:request.user.email|truncatechars:21 }}
                     </strong>
                     <small>
-                        {% if manager %}
-                            Manager / Admin
-                        {% else %}
-                            Team member
-                        {% endif %}
+                        {% if request.user.is_superuser %}Admin{% elif request.user.role %}{{ request.user.role.name }}{% else %}Unassigned{% endif %}
                     </small>
                 </div>
             </div>
@@ -691,11 +687,7 @@
                         <div>
                             <small>ROLE</small>
                             <strong>
-                                {% if manager %}
-                                    Manager / Admin
-                                {% else %}
-                                    Team member
-                                {% endif %}
+                                {% if request.user.is_superuser %}Admin{% elif request.user.role %}{{ request.user.role.name }}{% else %}Unassigned{% endif %}
                             </strong>
                         </div>
 
@@ -713,6 +705,36 @@
                             </strong>
                         </div>
                     </div>
+                </section>
+                <div class="account-actions">
+                    <a class="btn primary" href="{% url 'frontend:edit_profile' %}">Edit profile</a>
+                    <a class="btn secondary" href="{% url 'frontend:change_password' %}">Change password</a>
+                </div>
+
+            {% elif page == 'edit_profile' %}
+                <div class="page-head"><div><div class="eyebrow">ACCOUNT</div><h1>Edit profile</h1><p>Update your contact details. Your role and email cannot be changed here.</p></div></div>
+                <section class="panel form-panel">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}</label>
+                        {% endfor %}
+                        <div class="form-actions"><a class="btn secondary" href="{% url 'frontend:profile' %}">Cancel</a><button class="btn primary" type="submit">Save changes</button></div>
+                    </form>
+                </section>
+
+            {% elif page == 'change_password' %}
+                <div class="page-head"><div><div class="eyebrow">ACCOUNT SECURITY</div><h1>Change password</h1><p>Confirm your current password before setting a new one.</p></div></div>
+                <section class="panel form-panel">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <label>{{ field.label }}{{ field }}{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}</label>
+                            {% if field.help_text %}<div class="password-help">{{ field.help_text|safe }}</div>{% endif %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}<p class="form-error">{{ error }}</p>{% endfor %}
+                        <div class="form-actions"><a class="btn secondary" href="{% url 'frontend:profile' %}">Cancel</a><button class="btn primary" type="submit">Update password</button></div>
+                    </form>
                 </section>
 
             {% endif %}

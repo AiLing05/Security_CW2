@@ -743,3 +743,53 @@ class VaultDeskSecurityTests(TestCase):
                 action="download",
             ).exists()
         )
+
+    # Additional frontend regression checks
+    def test_33_profile_edit_updates_own_contact_details(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frontend:edit_profile'), {
+            'name': 'Updated Name', 'phone': '0123456789', 'location': 'Kuala Lumpur',
+        })
+        self.assertRedirects(response, reverse('frontend:profile'))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.name, 'Updated Name')
+        self.assertEqual(self.user.location, 'Kuala Lumpur')
+
+    def test_34_profile_edit_cannot_change_role_or_email(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frontend:edit_profile'), {
+            'name': 'Updated Name', 'phone': '0123456789', 'location': 'Penang',
+            'email': 'attacker@example.com', 'role': self.manager_group.pk,
+        })
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'user1@example.com')
+        self.assertEqual(self.user.role_id, self.user_group.pk)
+
+    def test_35_password_change_requires_correct_old_password(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frontend:change_password'), {
+            'old_password': 'incorrect', 'new_password1': 'NewStrongPassword2026!',
+            'new_password2': 'NewStrongPassword2026!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(TEST_PASSWORD))
+
+    def test_36_password_change_preserves_current_session(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frontend:change_password'), {
+            'old_password': TEST_PASSWORD, 'new_password1': 'NewStrongPassword2026!',
+            'new_password2': 'NewStrongPassword2026!',
+        })
+        self.assertRedirects(response, reverse('frontend:profile'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewStrongPassword2026!'))
+        self.assertEqual(str(self.client.session['_auth_user_id']), str(self.user.pk))
+
+    def test_37_manager_cannot_approve_own_document(self):
+        document = self.create_document(owner=self.manager)
+        self.client.force_login(self.manager)
+        response = self.client.post(reverse('frontend:approve_document', args=[document.pk]), {'decision': 'approve'})
+        self.assertEqual(response.status_code, 403)
+        document.refresh_from_db()
+        self.assertFalse(document.is_approved)
