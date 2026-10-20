@@ -1,26 +1,20 @@
-from rest_framework import serializers
-from .models import *
-# from djoser.serializers import UserCreateSerializer
+from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
-# from django.contrib.auth.models import Group
 from djoser.serializers import UserCreateSerializer
 
-
-# User = get_user_model()
-
+User = get_user_model()
 
 class CustomUserCreateSerializer(UserCreateSerializer):
     class Meta(UserCreateSerializer.Meta):
         model = User
-        fields = ('id', 'email','password', 'name', 'phone', 'location', 'role')
+        # Never accept a client-selected role during public registration.
+        fields = ('id', 'email', 'password', 'name', 'phone', 'location')
         extra_kwargs = {'password': {'write_only': True}}
-        
+
     def create(self, validated_data):
-        role = validated_data.pop('role', None)
+        user_role, _ = Group.objects.get_or_create(name='User')
         user = super().create(validated_data)
-        if role:
-            user.role = role
-            user.groups.set([role])  # 🔥 Assign user to selected group
-            user.save()
+        user.role = user_role
+        user.groups.add(user_role)
+        user.save(update_fields=['role'])
         return user
-       

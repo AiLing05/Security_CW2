@@ -219,3 +219,7 @@ LOGGING = {
     },
 
 }
+
+INSTALLED_APPS += ["frontend"]
+STATICFILES_DIRS = [BASE_DIR / "static"]
+LOGIN_URL = "/login/"
