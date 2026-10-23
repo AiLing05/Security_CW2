@@ -1,144 +1,89 @@
-# 📁 File Digitalization System
+# SoftwareEngineeringGroupProject
 
-A document digitalization and workflow management system built with Django REST Framework. It enables secure scanning, uploading, reviewing, and sharing of digital documents with real-time notifications using Firebase, authentication via Djoser tokens, and robust role-based access control.
+Digital Asset Management System (Django + Next.js + PostgreSQL)
 
-## 🚀 Features
+A full-stack digital asset management platform built using Django REST Framework, Next.js (React) and PostgreSQL, 
+designed to support secure asset uploads, metadata handling, version control, admin approval workflows and role-based access control.
 
-- 📄 **Document Scanning & Uploading** with OCR
-- ✅ **File Approval Workflow** with escalation
-- 🔍 **Smart Search & Retrieval** with filters and relevance ranking
-- 🔐 **Access Control & Document Sharing**
-- 💾 **Encrypted Backup & Recovery**
-- 📊 **Analytics Reporting** with scheduled reports
-- 🔔 **Real-time Notifications** using Firebase Cloud Messaging (FCM)
-- 🔑 **Authentication** via Djoser Token Auth
-- 👥 **Role-Based Permissions** (Admin, Manager, User, Viewer)
+Overview
 
----
+This system allows organizations to store, manage and retrieve digital assets efficiently. It includes JWT authentication, user roles, 
+asset versioning, drag-and-drop uploads and a full admin panel for managing users and approval requests.
 
-## 🧭 Workflows
+Frontend
+- Next.js (React)
+- Chakra UI
 
-### 📤 Document Scanning and Upload
-- **Initiator**: Standard User
-- **Actions**:
-  - Scan and upload documents.
-  - Tag with metadata (file name, category).
-  - Save to folder.
-- **Automations**:
-  - OCR text extraction.
-  - Firebase notification to users with access.
+Backend
+- Python Django
+- Django REST Framework
+- SimpleJWT Authentication
+- Redux ToolKit
+- PostgreSQL
+- Django Admin
 
----
+The system supports 3 main roles:
 
-### ✔️ File Approval
-- **Initiator**: Standard User
-- **Actions**:
-  - Submit file for approval.
-  - Approver reviews and acts (approve/request changes/reject).
-- **Automations**:
-  - Escalation to higher authority after timeout.
-  - Firebase alert to approvers.
+Role	Permissions
+Admin: Full control: user management, approve updates, edit/delete all assets
+Editor: Upload assets, edit their own assets, request updates
+Viewer: View and download approved assets
 
----
+Main Features
 
-### 🔎 Search and Retrieval
-- **Initiator**: Any user with access.
-- **Actions**:
-  - Filter by metadata, date, keywords.
-  - View sorted and ranked results.
-- **Automations**:
-  - Show related files based on usage patterns.
+✔️ 1. User Authentication & Role Access
+Login using SimpleJWT
+Tokens contain user role → used for frontend access control
+Middleware protects API routes
+Admin-only functions in backend
 
----
+✔️ 2. Asset Upload & Download
+Drag-and-drop upload (Next.js)
+Django handles file validation + saving
+Secure download endpoint
+Files stored with metadata + version history
 
-### 🔐 Access Control and Sharing
-- **Initiator**: Any user.
-- **Actions**:
-  - Request or share access to files.
-  - Admin approves or denies.
-- **Automations**:
-  - Notify stakeholders of permission changes.
+✔️ 3. Metadata Management
+Custom fields: tags, description, category
+Tag creation (admin) + smart tagging system
+Metadata stored in PostgreSQL and returned through serialized API responses
 
----
+✔️ 4. Advanced Search & Pagination
+Search by:
+Title
+Tags
+Category
+Uploaded date
+Pagination ensures high performance for large datasets.
 
-### 🛡️ Backup and Recovery
-- **Initiator**: System
-- **Actions**:
-  - Auto backup at scheduled intervals.
-  - Encrypted storage.
-  - Restore upon user request.
-- **Automations**:
-  - Notify users on completion/recovery.
+✔️ 5. Asset Preview & Version History
+Image, video, PDF preview support
+Track updates using AssetVersion model
+Editors submit updates → Admin approves or rejects
 
----
+✔️ 6. User Management
+Admin can create, update, deactivate users
+Change roles directly in the admin panel or custom admin page
 
-### 📈 Analytics Reporting
-- **Initiator**: Admin
-- **Actions**:
-  - Choose report type (usage, access, etc.).
-  - Generate visuals and stats.
-- **Automations**:
-  - Schedule recurring reports.
+✔️ 7. Update Request (Admin Side)
+Editors request asset changes
+Admin receives request list (API)
+Admin approves/rejects via dedicated endpoints
 
----
+1️⃣ Backend Setup:
+cd backend
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
 
-## 👥 Roles and Permissions
+2️⃣ Frontend Setup:
+cd frontend
+npm install
+npm run dev
 
-### 🛠️ Admin
-- Full system access
-- Manage users, roles, workflows, and reports
-- Handle escalations
-
-### 📂 Manager
-- Team-specific access
-- Approve/reject files
-- View reports for their domain
-
-### 👨‍💼 Standard User
-- Upload, tag, and request file access
-- Start approval workflows
-- Retrieve permitted documents
-
-### 👀 Viewer
-- View-only role
-- Can comment (if allowed)
-- No workflow privileges
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend**: Django, Django REST Framework
-- **Authentication**: Djoser Token Authentication
-- **Notifications**: Firebase Cloud Messaging (FCM)
-- **OCR**: Tesseract / OpenCV
-- **Database**: PostgreSQL
-- **Storage**: Encrypted local/remote file system
-
----
-
-## 📦 Dependencies Installation
-
-### 📄 OCR Setup (Tesseract + Poppler)
-- Download Tesseract
-- Download Poppler
-
-### ⚡ Redis Cache Setup
-- Install Redis
-- Open cmd 
-- Open redis directy as cd
-- Open redis-server
-
----
-
-## 🔐 Authentication
-
-Uses **Djoser** for token-based authentication:
-
-```http
-POST /auth/token/login/
-{
-  "username": "user",
-  "password": "pass"
-}
+Author:
+Nurul Ashwin Farhah,
+INTI International College Penang,
+3+0 Bachelor of Science (Hons) in Computer Science, in collaboration with Coventry
+University, UK
 
