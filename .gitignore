@@ -1,10 +1,27 @@
-/dam_frontend/.next/
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
-media/
-node_modules/
 *.sqlite3
+
+# PyCharm and VS Code
+.idea/
 .vscode/
+
+# Next.js / Node.js
+node_modules/
+.next/
+npm-debug.log*
+
+# Uploaded files
+media/
+
+# Operating system files
 .DS_Store
+Thumbs.db
