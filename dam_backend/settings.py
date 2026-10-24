@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 
     # Local apps
     "assets",
+    "audit",
 ]
 
 MIDDLEWARE = [
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "audit.middleware.AuditMiddleware",  # security event logging
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -130,4 +132,32 @@ AUTH_USER_MODEL = "assets.User"
 
 REST_FRAMEWORK["DEFAULT_PAGINATION_CLASS"] = "rest_framework.pagination.PageNumberPagination"
 REST_FRAMEWORK["PAGE_SIZE"] = 12
+
+# Security audit logging (audit app)
+AUDIT_LOG_RETENTION_DAYS = 365
+AUDIT_TRUSTED_PROXY_COUNT = 0  # raise only when behind our own reverse proxy
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json_line": {"format": "%(message)s"},
+    },
+    "handlers": {
+        "security_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "security.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 10,
+            "encoding": "utf-8",
+            "formatter": "json_line",
+        },
+    },
+    "loggers": {
+        "dam.security": {"handlers": ["security_file"], "level": "INFO", "propagate": False},
+    },
+}
 
