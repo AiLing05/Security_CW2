@@ -27,6 +27,7 @@ class EventType(models.TextChoices):
     ASSET_VIEWED = "ASSET_VIEWED", "Asset viewed"
     ASSET_DOWNLOADED = "ASSET_DOWNLOADED", "Asset file downloaded"
     VERSION_SUBMITTED = "VERSION_SUBMITTED", "Version submitted"
+    VERSION_UPDATED = "VERSION_UPDATED", "Version content changed"
     VERSION_APPROVED = "VERSION_APPROVED", "Version approved"
     VERSION_REJECTED = "VERSION_REJECTED", "Version rejected"
     VERSION_DELETED = "VERSION_DELETED", "Version deleted"

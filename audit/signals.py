@@ -19,7 +19,7 @@ User = get_user_model()
 TRACKED_FIELDS = {
     User: ["username", "email", "first_name", "last_name", "role", "is_staff", "is_superuser", "is_active", "password"],
     Asset: ["title", "description", "category_id", "version", "file", "metadata"],
-    AssetVersion: ["status"],
+    AssetVersion: ["status", "file", "title", "description", "category_id"],
     Category: ["name"],
     Tag: ["name"],
 }
@@ -125,8 +125,8 @@ def _file_info(field_file):
     info = {"file": str(field_file) if field_file else ""}
     try:
         info["size_bytes"] = field_file.size
-    except Exception:
-        pass
+    except (OSError, ValueError):
+        info["size_bytes"] = None  # file missing or not yet stored
     return info
 
 
@@ -168,10 +168,17 @@ def on_version_saved(sender, instance, created, raw=False, **kwargs):
         return
     changes = _changes(sender, instance)
     if "status" in changes:
-        old, new = changes["status"]
+        old, new = changes.pop("status")
         event = {"approved": EventType.VERSION_APPROVED, "rejected": EventType.VERSION_REJECTED}.get(new)
         if event:
             log_event(event, **target, details={"from": old, "to": new, "asset_id": instance.asset_id})
+    if changes:
+        # Content of a submitted version replaced (e.g. file swapped before approval)
+        log_event(
+            EventType.VERSION_UPDATED, **target, severity=Severity.WARNING,
+            details={"fields": sorted(changes), "asset_id": instance.asset_id,
+                     "submitted_by": instance.uploaded_by_id},
+        )
 
 
 @receiver(post_delete, sender=AssetVersion)

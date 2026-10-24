@@ -99,6 +99,30 @@ class AssetEventTests(AuditTestCase):
         self.assertEqual(approved.actor_username, "admin1")
         self.assertEqual(approved.details["to"], "approved")
 
+    def test_version_content_replacement_recorded(self):
+        # Found by manual test M04: a viewer could PUT over another user's
+        # pending version. Whatever the permission outcome, the change must be logged.
+        self.auth_as(self.admin)
+        asset = self.upload()
+        self.auth_as(self.editor)
+        version_id = self.client.post(
+            f"/api/assets/{asset.pk}/request_update/", {"title": "v2", "file": self.png("v2.png")},
+            format="multipart",
+        ).data["id"]
+        self.auth_as(self.viewer)
+        response = self.client.put(
+            f"/api/versions/{version_id}/",
+            {"title": "swapped", "asset": asset.pk, "version": 2, "file": self.png("swap.png")},
+            format="multipart",
+        )
+        if response.status_code == 200:
+            event = self.events("VERSION_UPDATED").get()
+            self.assertEqual(event.actor_username, "viewer1")
+            self.assertEqual(event.details["submitted_by"], self.editor.pk)
+            self.assertIn("file", event.details["fields"])
+        else:  # once RBAC is fixed the request is denied and logged instead
+            self.assertTrue(self.events("ACCESS_DENIED").filter(actor_username="viewer1").exists())
+
 
 class AdministrationEventTests(AuditTestCase):
     def test_role_escalation_recorded_as_high_severity(self):

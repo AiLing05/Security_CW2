@@ -27,9 +27,9 @@ CHAIN_LOCK_KEY = 0x5EC_A0D1
 CATEGORY_BY_PREFIX = {
     "LOGIN": "authentication",
     "LOGOUT": "authentication",
-    "TOKEN": "authentication",
+    "TOKEN": "authentication",  # nosec B105 - event-name prefix, not a secret
     "RATE": "authentication",
-    "PASSWORD": "authentication",
+    "PASSWORD": "authentication",  # nosec B105 - event-name prefix, not a secret
     "ACCESS_DENIED": "authorization",
     "ASSET": "asset",
     "VERSION": "asset",
