@@ -76,6 +76,9 @@ export default function NavBar() {
             <Button variant="ghost" onClick={() => router.push("/admin/users")}>
               Manage Users
             </Button>
+            <Button variant="ghost" onClick={() => router.push("/admin/security")}>
+              Security
+            </Button>
           </>
         )}
 
