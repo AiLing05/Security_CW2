@@ -234,6 +234,21 @@ async function handleUpdate() {
     );
   }
 
+  if (!asset) {
+      return (
+        <Layout>
+          <Box textAlign="center" py={20}>
+            <Text color="red.500">
+              Unable to load asset details. Please refresh the page or log in again.
+            </Text>
+            <Button mt={4} onClick={() => router.push("/assets")}>
+              Back to Assets
+            </Button>
+          </Box>
+        </Layout>
+      );
+  }
+
   const filePath = asset?.file || "";
   const fullUrlRaw = filePath?.startsWith("http") ? filePath : `${base}${filePath}`;
   const fullUrl = cacheBust ? `${fullUrlRaw}${fullUrlRaw.includes("?") ? "&" : "?"}cb=${cacheBust}` : fullUrlRaw;
