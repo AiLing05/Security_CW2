@@ -161,7 +161,12 @@ class AssetViewSet(viewsets.ModelViewSet):
         Handle both initial uploads and creation of new asset versions.
         """
         request = self.request
-        tags = request.data.getlist("tags[]") if hasattr(request.data, "getlist") else request.data.get("tags")
+        if hasattr(request.data, "getlist"):
+            tags = request.data.getlist("tags[]")
+            if not tags:
+                tags = request.data.getlist("tags")
+        else:
+            tags = request.data.get("tags[]") or request.data.get("tags")
         parent_id = request.data.get("parent")
         parent_asset = Asset.objects.filter(pk=parent_id).first() if parent_id else None
 
@@ -182,14 +187,14 @@ class AssetViewSet(viewsets.ModelViewSet):
         asset = serializer.save(uploaded_by=request.user)
         if tags:
             if isinstance(tags, str):
-                tag_names = [t.strip() for t in tags.split(",") if t.strip()]
-            elif isinstance(tags, (list, tuple)):
-                tag_names = tags
-            else:
-                tag_names = []
-            for tname in tag_names:
-                tag_obj, _ = Tag.objects.get_or_create(name=tname)
-                asset.tags.add(tag_obj)
+                tags = tags.split(",")
+
+            for tag in tags:
+                for name in tag.split(","):
+                    tname = name.strip()
+                    if tname:
+                        tag_obj, _ = Tag.objects.get_or_create(name=tname)
+                        asset.tags.add(tag_obj)
 
         # Create initial version entry automatically
         AssetVersion.objects.create(
