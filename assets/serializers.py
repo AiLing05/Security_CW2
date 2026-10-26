@@ -187,7 +187,7 @@ class AssetSerializer(serializers.ModelSerializer):
             rep["category"] = CategorySerializer(latest.category).data if latest.category else (
                 CategorySerializer(instance.category).data if instance.category else None
             )
-            rep["tags"] = TagSerializer(latest.tags.all(), many=True).data
+            rep["tags"] = TagSerializer(latest.tags.all() if latest.tags.exists() else instance.tags.all(), many=True).data
         else:
             rep["title"] = instance.title
             rep["description"] = instance.description
