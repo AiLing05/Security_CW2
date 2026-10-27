@@ -61,7 +61,7 @@ class DashboardContentTests(AuditTestCase):
     def test_summary_counts_and_trend(self):
         for _ in range(5):
             self.login("editor1", password="wrong")
-        self.auth_as(self.admin)
+        self.auth_as(self.admin, ip="198.51.100.7")  # the login rate limit is per IP
         data = self.client.get("/api/audit/summary/").data
         self.assertEqual(data["last_24h"]["login_failed"], 5)
         self.assertGreaterEqual(data["last_24h"]["login_success"], 1)

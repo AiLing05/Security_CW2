@@ -14,4 +14,3 @@ DATABASES = {
         "NAME": BASE_DIR / "test_db.sqlite3",  # noqa: F405
     }
 }
-PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]  # faster tests only

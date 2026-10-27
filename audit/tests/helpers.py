@@ -2,6 +2,7 @@ import shutil
 import tempfile
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -24,6 +25,7 @@ class AuditTestCase(TestCase):
         shutil.rmtree(_MEDIA, ignore_errors=True)
 
     def setUp(self):
+        cache.clear()  # reset the login rate limit between tests
         self.admin = User.objects.create_superuser("admin1", "admin1@example.com", PASSWORD)
         self.editor = User.objects.create_user("editor1", "editor1@example.com", PASSWORD, role="editor")
         self.viewer = User.objects.create_user("viewer1", "viewer1@example.com", PASSWORD, role="viewer")
@@ -34,8 +36,8 @@ class AuditTestCase(TestCase):
             "/api/token/", {"username": username, "password": password}, format="json", REMOTE_ADDR=ip
         )
 
-    def auth_as(self, user):
-        response = self.login(user.username)
+    def auth_as(self, user, ip="203.0.113.10"):
+        response = self.login(user.username, ip=ip)
         self.assertEqual(response.status_code, 200, response.content)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
         return response.data
