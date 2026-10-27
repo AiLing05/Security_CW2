@@ -8,6 +8,8 @@ record* them so an administrator can respond.
 """
 from datetime import timedelta
 
+from django.db.models import Q
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from . import conf
@@ -15,7 +17,7 @@ from .models import EventType, Outcome, SecurityEvent, Severity
 
 
 def evaluate(event):
-    if event.event_type == EventType.LOGIN_FAILED:
+    if event.event_type == EventType.LOGIN_FAILED or _is_throttled_login(event):
         _failed_login_per_user(event)
         _failed_login_per_ip(event)
     elif event.event_type in (EventType.ACCESS_DENIED, EventType.TOKEN_REFRESH_FAILED):
@@ -29,6 +31,28 @@ def evaluate(event):
 # ----------------------------------------------------------
 def _since(minutes):
     return timezone.now() - timedelta(minutes=minutes)
+
+
+def _login_path():
+    try:
+        return reverse("token_obtain_pair")
+    except NoReverseMatch:
+        return "/api/token/"
+
+
+def _is_throttled_login(event):
+    return event.event_type == EventType.RATE_LIMITED and event.path == _login_path()
+
+
+def _login_attempts():
+    """Failed logins plus login attempts blocked by the login rate limit.
+
+    Once the throttle starts returning 429 the password is never checked, so
+    those attempts would otherwise hide an ongoing attack from the rules.
+    """
+    return SecurityEvent.objects.filter(
+        Q(event_type=EventType.LOGIN_FAILED) | Q(event_type=EventType.RATE_LIMITED, path=_login_path())
+    )
 
 
 def _already_alerted(alert_type, key, since):
@@ -62,9 +86,7 @@ def _failed_login_per_user(event):
         return
     window = conf.detection("FAILED_LOGIN_WINDOW_MINUTES")
     since = _since(window)
-    count = SecurityEvent.objects.filter(
-        event_type=EventType.LOGIN_FAILED, actor_username=event.actor_username, timestamp__gte=since
-    ).count()
+    count = _login_attempts().filter(actor_username=event.actor_username, timestamp__gte=since).count()
     key = f"user:{event.actor_username}"
     if count >= conf.detection("FAILED_LOGIN_PER_USER") and not _already_alerted(
         EventType.BRUTE_FORCE_SUSPECTED, key, since
@@ -81,9 +103,7 @@ def _failed_login_per_ip(event):
         return
     window = conf.detection("FAILED_LOGIN_WINDOW_MINUTES")
     since = _since(window)
-    recent = SecurityEvent.objects.filter(
-        event_type=EventType.LOGIN_FAILED, ip_address=event.ip_address, timestamp__gte=since
-    )
+    recent = _login_attempts().filter(ip_address=event.ip_address, timestamp__gte=since)
     count = recent.count()
     usernames = recent.values("actor_username").distinct().count()
     key = f"ip:{event.ip_address}"

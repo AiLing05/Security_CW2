@@ -21,6 +21,18 @@ class BruteForceDetectionTests(AuditTestCase):
         self.assertEqual(alert.details["key"], "user:editor1")
         self.assertEqual(alert.details["failed_attempts"], 5)
 
+    def test_attempts_blocked_by_login_throttle_still_count(self):
+        # Two normal logins use up part of the per-IP login limit (5/min),
+        # so only three wrong passwords are checked before requests get 429.
+        self.login("admin1")
+        self.login("viewer1")
+        for _ in range(5):
+            self.login("editor1", password="wrong")
+        self.assertEqual(self.events("LOGIN_FAILED").count(), 3)
+        self.assertEqual(self.events("RATE_LIMITED").count(), 2)
+        alert = self.events("BRUTE_FORCE_SUSPECTED").get()
+        self.assertEqual(alert.details["failed_attempts"], 5)
+
     def test_credential_stuffing_across_many_accounts_from_one_ip(self):
         for name in ["alice", "bob", "carol", "dave", "erin"]:
             self.login(name, password="Summer2026!", ip="192.0.2.99")
