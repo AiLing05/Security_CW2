@@ -8,11 +8,13 @@ from .serializers import (
     TagSerializer, AssetVersionSerializer, MyTokenObtainPairSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .file_validators import validate_uploaded_file
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 
 @api_view(["GET"])
@@ -26,11 +28,55 @@ def me_view(request):
         "role": getattr(user, "role", None),
     })
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    """Blacklist a refresh token during logout."""
+    refresh_token = request.data.get("refresh")
+
+    if not isinstance(refresh_token, str) or not refresh_token:
+        return Response(
+            {"detail": "Refresh token is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        token = RefreshToken(refresh_token)
+
+        # Prevent one authenticated user from revoking
+        # another user's refresh token.
+        if str(token.get("user_id")) != str(request.user.pk):
+            return Response(
+                {"detail": "Invalid refresh token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token.blacklist()
+
+    except TokenError:
+        return Response(
+            {"detail": "Invalid or expired refresh token."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response(
+        {"detail": "Logged out successfully."},
+        status=status.HTTP_200_OK,
+    )
+
+
 # ---------------------------------------------------------------------
-# AUTH VIEW
+# AUTH VIEW - LOGIN RATE LIMITING
 # ---------------------------------------------------------------------
+class LoginRateThrottle(AnonRateThrottle):
+    scope = "login"
+    rate = "5/min"
+
+
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle]
 
 
 # ---------------------------------------------------------------------
@@ -105,16 +151,19 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]  # keep using Django admin check here
 
+
 # ---------------------------------------------------------------------
 # CUSTOM PERMISSIONS FOR CATEGORY
 # ---------------------------------------------------------------------
 class IsAdminOrReadOnly(permissions.BasePermission):
     """Allow only admins to create/update/delete; everyone can read."""
+
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
         user = request.user
         return user.is_authenticated and getattr(user, "role", "").lower() == "admin"
+
 
 # ---------------------------------------------------------------------
 # CATEGORY + TAGS
@@ -293,7 +342,8 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = AssetVersion.objects.select_related("uploaded_by", "asset", "category").prefetch_related("tags").all()
+        queryset = AssetVersion.objects.select_related("uploaded_by", "asset", "category").prefetch_related(
+            "tags").all()
         asset_id = self.request.query_params.get("asset_id")
         if asset_id:
             queryset = queryset.filter(asset_id=asset_id)

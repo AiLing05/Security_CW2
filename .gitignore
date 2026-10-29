@@ -25,3 +25,5 @@ media/
 # Operating system files
 .DS_Store
 Thumbs.db
+# Application logs
+logs/

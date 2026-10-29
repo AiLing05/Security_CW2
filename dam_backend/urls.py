@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework import routers
 from assets.views import (
     UserViewSet, AssetViewSet, CategoryViewSet,
-    TagViewSet, AssetVersionViewSet, MyTokenObtainPairView, me_view
+    TagViewSet, AssetVersionViewSet, MyTokenObtainPairView, me_view, logout_view
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
@@ -17,13 +17,17 @@ router.register(r"categories", CategoryViewSet)
 router.register(r"tags", TagViewSet)
 router.register(r"versions", AssetVersionViewSet, basename="versions")
 
+
 def home(request):
     return JsonResponse({"message": "Welcome to the DAM backend API!"})
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
     path("api/me/", me_view, name="me"),  # ✅ added route
+    path("api/logout/", logout_view, name="logout"),
+    path("api/audit/", include("audit.urls")),
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("", home),
