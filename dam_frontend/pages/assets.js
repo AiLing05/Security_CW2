@@ -220,10 +220,19 @@ export default function AssetsPage() {
   }
 
   async function handleUpload() {
-    if (!selectedFile || !title) {
+    if (!title.trim()) {
       toast({
-        title: "Missing fields",
-        description: "Please provide a title and select a file.",
+        title: "Missing title",
+        description: "Please enter an asset title.",
+        status: "warning",
+      });
+      return;
+    }
+
+    if (!selectedFile) {
+      toast({
+        title: "Missing file",
+        description: "Please select a file to upload.",
         status: "warning",
       });
       return;
@@ -273,9 +282,33 @@ export default function AssetsPage() {
         setCustomCategory("");
         fetchAssets(token);
       } else {
-        const error = await res.text();
-        console.error("Upload error:", error);
-        toast({ title: "Upload failed", description: error, status: "error" });
+        let message = "Unable to upload the file. Please try again.";
+
+        try {
+          const errorData = await res.json();
+
+          const fileError = Array.isArray(errorData.file)
+            ? errorData.file[0]
+            : errorData.file;
+
+          if (fileError === "Unsupported file extension.") {
+            message = "This file type is not supported. Please select a supported file.";
+          } else if (fileError) {
+            message = fileError;
+          } else if (errorData.detail) {
+            message = errorData.detail;
+          }
+        } catch {
+          // Show a general message if the server response is not JSON.
+        }
+
+        toast({
+          title: "File upload failed",
+          description: message,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
       }
     } catch (err) {
       console.error(err);
@@ -327,6 +360,7 @@ export default function AssetsPage() {
               </FormControl>
               <FormControl>
                 <FormLabel>File</FormLabel>
+
                 <UploadDropzone
                   onFileSelected={(file) => {
                     setSelectedFile(file);
@@ -334,6 +368,14 @@ export default function AssetsPage() {
                   }}
                   preview={preview}
                 />
+
+                {selectedFile && (
+                  <Box mt={3} p={3} bg="gray.50" borderRadius="md">
+                    <Text fontSize="sm" color="gray.700">
+                      <strong>Selected File:</strong> {selectedFile.name}
+                    </Text>
+                  </Box>
+                )}
               </FormControl>
               <Button colorScheme="blue" onClick={handleUpload} isLoading={isUploading}>
                 Submit Asset

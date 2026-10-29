@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import User, Asset, Category, Tag, AssetVersion
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
+from .file_validators import validate_uploaded_file
 
 
 # --------------------------
@@ -102,6 +103,9 @@ class AssetVersionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uploaded_at", "uploaded_by", "version", "status"]
 
+    def validate_file(self, value):
+        return validate_uploaded_file(value)
+
 
 # --------------------------
 # Asset Serializer
@@ -129,6 +133,9 @@ class AssetSerializer(serializers.ModelSerializer):
             "versions",
         ]
         read_only_fields = ("uploaded_by", "version", "uploaded_at", "versions")
+
+    def validate_file(self, value):
+        return validate_uploaded_file(value)
 
     # Always return latest approved version for frontend
     def to_representation(self, instance):
