@@ -187,8 +187,42 @@ async function handleUpdate() {
     // fetch latest versions for version history
     await fetchVersions(token, id);
   } catch (e) {
-    console.error(e);
-    toast({ title: "Update failed", description: String(e.message || e), status: "error" });
+    console.error("Update error:", e);
+
+    const rawError = String(e.message || e || "");
+
+    let message = "Unable to update the asset. Please try again.";
+    let fileError = rawError;
+
+    try {
+      const errorData = JSON.parse(rawError);
+
+      fileError = Array.isArray(errorData.file)
+        ? errorData.file[0]
+        : errorData.file || errorData.detail || rawError;
+    } catch {
+      // Handle plain-text error messages.
+    }
+
+    if (fileError.includes("Unsupported file extension")) {
+      message = "This file type is not supported. Please select a supported file.";
+    } else if (fileError.includes("File MIME type does not match")) {
+      message = "The selected file format is not valid. Please choose another file.";
+    } else if (fileError.includes("File content does not match")) {
+      message = "The file content does not match its format. Please select a valid file.";
+    } else if (fileError.includes("File size must not exceed")) {
+      message = "The selected file is too large. Maximum file size is 50 MB.";
+    } else if (fileError.includes("Empty files are not allowed")) {
+      message = "The selected file is empty. Please choose another file.";
+    }
+
+    toast({
+      title: "Update failed",
+      description: message,
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
   }
 }
 

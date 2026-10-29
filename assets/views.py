@@ -11,6 +11,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from .file_validators import validate_uploaded_file
+from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -222,14 +224,22 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         # If it's a new version for an existing asset (parent provided)
         if parent_asset:
+            uploaded_file = request.FILES.get("file")
+
+            if not uploaded_file:
+                raise ValidationError({"file": "Please select a file."})
+
+            validate_uploaded_file(uploaded_file)
+
             last_version = parent_asset.version or 1
             new_version_num = last_version + 1
+
             av = AssetVersion.objects.create(
                 asset=parent_asset,
-                file=request.data.get("file"),
+                file=uploaded_file,
                 uploaded_by=request.user,
                 version=new_version_num,
-                status="pending",  # Needs admin approval
+                status="pending",
             )
             return av
 
@@ -264,8 +274,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def request_update(self, request, pk=None):
         """
-        Editors can submit a new version of an asset.
-        Creates an AssetVersion with status='pending' for admin approval.
+        Admin and Editor can submit a new version of an asset.
         """
         asset = self.get_object()
         user = request.user
@@ -276,8 +285,11 @@ class AssetViewSet(viewsets.ModelViewSet):
         if role not in ("admin", "editor"):
             return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
 
-        # Editors can request updates; admin can too.
-        file = request.data.get("file")
+        file = request.FILES.get("file")
+
+        if file is not None:
+            validate_uploaded_file(file)
+
         comment = request.data.get("comment", "")
         title = request.data.get("title", asset.title)
         description = request.data.get("description", asset.description)

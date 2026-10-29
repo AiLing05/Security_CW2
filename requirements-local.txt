@@ -1,0 +1,17 @@
+﻿asgiref==3.9.2
+colorama==0.4.6
+Django==5.2.6
+django-cors-headers==4.9.0
+django-filter==25.1
+djangorestframework==3.16.1
+djangorestframework_simplejwt==5.5.1
+greenlet==3.2.4
+mysql-connector-python==9.4.0
+pillow==11.3.0
+psycopg2-binary==2.9.10
+PyJWT==2.10.1
+PyMySQL==1.1.2
+SQLAlchemy==2.0.43
+sqlparse==0.5.3
+typing_extensions==4.15.0
+tzdata==2025.2

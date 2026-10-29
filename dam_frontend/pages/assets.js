@@ -219,15 +219,24 @@ export default function AssetsPage() {
         }
     }
 
-    async function handleUpload() {
-        if (!selectedFile || !title) {
-            toast({
-                title: "Missing fields",
-                description: "Please provide a title and select a file.",
-                status: "warning",
-            });
-            return;
-        }
+  async function handleUpload() {
+    if (!title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter an asset title.",
+        status: "warning",
+      });
+      return;
+    }
+
+    if (!selectedFile) {
+      toast({
+        title: "Missing file",
+        description: "Please select a file to upload.",
+        status: "warning",
+      });
+      return;
+    }
 
         setIsUploading(true);
         try {
@@ -262,27 +271,50 @@ export default function AssetsPage() {
                 body: formData,
             });
 
-            if (res.ok) {
-                toast({title: "Upload successful", status: "success"});
-                setSelectedFile(null);
-                setPreview(null);
-                setTitle("");
-                setDescription("");
-                setTag("");
-                setCategoryId("");
-                setCustomCategory("");
-                fetchAssets(token);
-            } else {
-                const error = await res.text();
-                console.error("Upload error:", error);
-                toast({title: "Upload failed", description: error, status: "error"});
-            }
-        } catch (err) {
-            console.error(err);
-            toast({title: "Error during upload", description: err.message, status: "error"});
-        } finally {
-            setIsUploading(false);
+      if (res.ok) {
+        toast({ title: "Upload successful", status: "success" });
+        setSelectedFile(null);
+        setPreview(null);
+        setTitle("");
+        setDescription("");
+        setTag("");
+        setCategoryId("");
+        setCustomCategory("");
+        fetchAssets(token);
+      } else {
+        let message = "Unable to upload the file. Please try again.";
+
+        try {
+          const errorData = await res.json();
+
+          const fileError = Array.isArray(errorData.file)
+            ? errorData.file[0]
+            : errorData.file;
+
+          if (fileError === "Unsupported file extension.") {
+            message = "This file type is not supported. Please select a supported file.";
+          } else if (fileError) {
+            message = fileError;
+          } else if (errorData.detail) {
+            message = errorData.detail;
+          }
+        } catch {
+          // Show a general message if the server response is not JSON.
         }
+
+        toast({
+          title: "File upload failed",
+          description: message,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error during upload", description: err.message, status: "error" });
+    } finally {
+      setIsUploading(false);
     }
 
     return (
@@ -295,57 +327,61 @@ export default function AssetsPage() {
 
                 <Divider mb={6}/>
 
-                {(role === "admin" || role === "editor") && (
-                    <Box bg="gray.50" p={6} rounded="xl" shadow="sm" mb={8}>
-                        <Heading size="md" mb={4}>Upload New Asset</Heading>
-                        <VStack align="stretch" spacing={4}>
-                            <FormControl>
-                                <FormLabel>Title</FormLabel>
-                                <Input value={title} onChange={(e) => setTitle(e.target.value)}
-                                       placeholder="Enter asset title"/>
-                            </FormControl>
-                            <FormControl>
-                                <FormLabel>Description</FormLabel>
-                                <Textarea value={description} onChange={(e) => setDescription(e.target.value)}
-                                          placeholder="Enter a short description"/>
-                            </FormControl>
-                            <FormControl>
-                                <FormLabel>Category</FormLabel>
-                                <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
-                                        placeholder="Select category">
-                                    {staticCategories.map((cat) => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            {categoryId === "Others" && (
-                                <FormControl>
-                                    <FormLabel>Custom Category</FormLabel>
-                                    <Input value={customCategory} onChange={(e) => setCustomCategory(e.target.value)}
-                                           placeholder="Enter custom category"/>
-                                </FormControl>
-                            )}
-                            <FormControl>
-                                <FormLabel>Tags</FormLabel>
-                                <Input value={tag} onChange={(e) => setTag(e.target.value)}
-                                       placeholder="Comma-separated tags"/>
-                            </FormControl>
-                            <FormControl>
-                                <FormLabel>File</FormLabel>
-                                <UploadDropzone
-                                    onFileSelected={(file) => {
-                                        setSelectedFile(file);
-                                        setPreview(URL.createObjectURL(file));
-                                    }}
-                                    preview={preview}
-                                />
-                            </FormControl>
-                            <Button colorScheme="blue" onClick={handleUpload} isLoading={isUploading}>
-                                Submit Asset
-                            </Button>
-                        </VStack>
-                    </Box>
+        {(role === "admin" || role === "editor") && (
+          <Box bg="gray.50" p={6} rounded="xl" shadow="sm" mb={8}>
+            <Heading size="md" mb={4}>Upload New Asset</Heading>
+            <VStack align="stretch" spacing={4}>
+              <FormControl>
+                <FormLabel>Title</FormLabel>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter asset title" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Description</FormLabel>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Enter a short description" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Category</FormLabel>
+                <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} placeholder="Select category">
+                  {staticCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              {categoryId === "Others" && (
+                <FormControl>
+                  <FormLabel>Custom Category</FormLabel>
+                  <Input value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="Enter custom category" />
+                </FormControl>
+              )}
+              <FormControl>
+                <FormLabel>Tags</FormLabel>
+                <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Comma-separated tags" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>File</FormLabel>
+
+                <UploadDropzone
+                  onFileSelected={(file) => {
+                    setSelectedFile(file);
+                    setPreview(URL.createObjectURL(file));
+                  }}
+                  preview={preview}
+                />
+
+                {selectedFile && (
+                  <Box mt={3} p={3} bg="gray.50" borderRadius="md">
+                    <Text fontSize="sm" color="gray.700">
+                      <strong>Selected File:</strong> {selectedFile.name}
+                    </Text>
+                  </Box>
                 )}
+              </FormControl>
+              <Button colorScheme="blue" onClick={handleUpload} isLoading={isUploading}>
+                Submit Asset
+              </Button>
+            </VStack>
+          </Box>
+        )}
 
                 <Heading size="md" mb={4}>Uploaded Assets</Heading>
                 {assets.length === 0 ? (
