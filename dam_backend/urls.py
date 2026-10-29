@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("api/me/", me_view, name="me"),  # ✅ added route
     path("api/logout/", logout_view, name="logout"),
+    path("api/audit/", include("audit.urls")),
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("", home),
