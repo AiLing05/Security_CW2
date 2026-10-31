@@ -19,6 +19,7 @@ import { useRouter } from "next/router";
 import Layout from "../components/Layout";
 import UploadDropzone from "../components/UploadDropzone";
 import { fetchWithToken } from "../lib/api";
+import { openProtectedFile } from "../utils/protectedFiles";
 
 /*────────────────────────────────
  🔹 File Type Detection
@@ -95,10 +96,6 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
 ────────────────────────────────*/
 function AssetCard({ asset }) {
   const router = useRouter();
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "";
-  const fileUrl = asset.file?.startsWith("http")
-    ? asset.file
-    : `${base}${asset.file}`;
   const kind = detectKind(asset.file || "");
 
   return (
@@ -128,16 +125,25 @@ function AssetCard({ asset }) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => {
+          onClick={async () => {
             const token = localStorage.getItem("access_token");
-            if (kind === "model") {
-              openModelInNewTab({
-                srcUrl: fileUrl,
-                token,
-                title: asset.title || "3D Model",
-              });
-            } else {
-              window.open(fileUrl, "_blank");
+
+            try {
+              const protectedUrl =
+                `${process.env.NEXT_PUBLIC_API_URL}/assets/${asset.id}/file/`;
+
+              if (kind === "model") {
+                await openModelInNewTab({
+                  srcUrl: protectedUrl,
+                  token,
+                  title: asset.title || "3D Model",
+                });
+              } else {
+                await openProtectedFile(protectedUrl, token);
+              }
+            } catch (error) {
+              console.error("Preview error:", error);
+              alert(error.message || "Unable to preview this file.");
             }
           }}
         >

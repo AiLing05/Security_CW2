@@ -4,11 +4,11 @@ from django.urls import path, include
 from rest_framework import routers
 from assets.views import (
     UserViewSet, AssetViewSet, CategoryViewSet,
-    TagViewSet, AssetVersionViewSet, MyTokenObtainPairView, me_view, logout_view
+    TagViewSet, AssetVersionViewSet, MyTokenObtainPairView,
+    me_view, logout_view, protected_asset_file, protected_version_file
 )
 from rest_framework_simplejwt.views import TokenRefreshView
-from django.conf import settings
-from django.conf.urls.static import static
+
 
 router = routers.DefaultRouter()
 router.register(r"users", UserViewSet)
@@ -24,15 +24,24 @@ def home(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
+    # Protected file access routes
+    path(
+        "api/assets/<int:asset_id>/file/",
+        protected_asset_file,
+        name="protected_asset_file",
+    ),
+    path(
+        "api/versions/<int:version_id>/file/",
+        protected_version_file,
+        name="protected_version_file",
+    ),
+
     path("api/", include(router.urls)),
-    path("api/me/", me_view, name="me"),  # ✅ added route
+    path("api/me/", me_view, name="me"),
     path("api/logout/", logout_view, name="logout"),
     path("api/audit/", include("audit.urls")),
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("", home),
 ]
-
-# ✅ Serve media files during development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
