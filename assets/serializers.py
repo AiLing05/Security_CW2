@@ -11,6 +11,8 @@ from .input_validators import (
     validate_tags_input,
 )
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 # --------------------------
 # JWT Token Serializer with role
@@ -48,22 +50,66 @@ class UserSerializer(serializers.ModelSerializer):
             "role",
         ]
 
+
+    # Require a password when creating a new user
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("password"):
+            raise serializers.ValidationError({
+                "password": "Password is required."
+            })
+
+        # Check similarity against user attributes
+        if "password" in attrs:
+            user = User(
+                username=attrs.get(
+                    "username",
+                    self.instance.username if self.instance else ""
+                ),
+                email=attrs.get(
+                    "email",
+                    self.instance.email if self.instance else ""
+                ),
+                first_name=attrs.get(
+                    "first_name",
+                    self.instance.first_name if self.instance else ""
+                ),
+                last_name=attrs.get(
+                    "last_name",
+                    self.instance.last_name if self.instance else ""
+                ),
+            )
+
+            try:
+                validate_password(attrs["password"], user=user)
+            except DjangoValidationError as error:
+                raise serializers.ValidationError({
+                    "password": error.messages
+                })
+
+        return attrs
+
     def create(self, validated_data):
         password = validated_data.pop("password", None)
         user = User(**validated_data)
+
         if password:
             user.set_password(password)
+
         user.save()
         return user
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         if password:
             instance.password = make_password(password)
+
         instance.save()
         return instance
+
 
 
 # --------------------------
