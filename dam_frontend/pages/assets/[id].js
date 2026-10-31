@@ -11,6 +11,7 @@ import {
   useDisclosure, Select,
 } from "@chakra-ui/react";
 import Layout from "../../components/Layout";
+import { fetchProtectedFile } from "../../utils/protectedFiles";
 
 /* ---------------- helpers ---------------- */
 const detectKind = (name = "") => {
@@ -65,6 +66,8 @@ export default function AssetDetails() {
     title: "", description: "", category_id: "", tags: "", file: null
   });
   const [localPreviewUrl, setLocalPreviewUrl] = useState(null);
+  const [protectedPreviewUrl, setProtectedPreviewUrl] = useState(null);
+  const [protectedVersionUrl, setProtectedVersionUrl] = useState(null);
 
   // used to force-refresh preview after updates (cache bust + rerender)
   const [cacheBust, setCacheBust] = useState(0);
@@ -77,7 +80,70 @@ export default function AssetDetails() {
   const fileInputRef = useRef(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || "";
-  const base = API ? API.replace("/api", "") : "";
+
+  // Load the current asset file through the protected API.
+  useEffect(() => {
+    if (!id || !token) return;
+
+    let active = true;
+    let objectUrl = null;
+
+    setProtectedPreviewUrl(null);
+
+    fetchProtectedFile(
+      `${API}/assets/${id}/file/`,
+      token
+    )
+      .then((url) => {
+        objectUrl = url;
+
+        if (active) {
+          setProtectedPreviewUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch((error) => {
+        if (active) console.error("Protected preview error:", error);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id, token, cacheBust]);
+
+  // Load the selected version through the protected API.
+  useEffect(() => {
+    if (!previewVersion?.id || !token || !isOpen) return;
+
+    let active = true;
+    let objectUrl = null;
+
+    setProtectedVersionUrl(null);
+
+    fetchProtectedFile(
+      `${API}/versions/${previewVersion.id}/file/`,
+      token
+    )
+      .then((url) => {
+        objectUrl = url;
+
+        if (active) {
+          setProtectedVersionUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch((error) => {
+        if (active) console.error("Protected version error:", error);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewVersion?.id, token, isOpen]);
 
   /* ---------- bootstrap ---------- */
   useEffect(() => {
@@ -304,8 +370,6 @@ async function handleUpdate() {
   }
 
   const filePath = asset?.file || "";
-  const fullUrlRaw = filePath?.startsWith("http") ? filePath : `${base}${filePath}`;
-  const fullUrl = cacheBust ? `${fullUrlRaw}${fullUrlRaw.includes("?") ? "&" : "?"}cb=${cacheBust}` : fullUrlRaw;
   const kind = detectKind(filePath);
 
   const categoryName =
@@ -328,20 +392,43 @@ async function handleUpdate() {
               <Box bg="gray.100" p={3} rounded="md" minH="320px" display="grid" placeItems="center">
                 {!filePath ? (
                   <Text>No preview available</Text>
+                ) : !protectedPreviewUrl ? (
+                  <Spinner />
                 ) : kind === "image" ? (
-                  <Image key={`img-${cacheBust}`} src={fullUrl} alt={asset.title} maxH="300px" mx="auto" rounded="lg" shadow="sm" />
+                  <Image
+                    src={protectedPreviewUrl}
+                    alt={asset.title}
+                    maxH="300px"
+                    mx="auto"
+                    rounded="lg"
+                    shadow="sm"
+                  />
                 ) : kind === "video" ? (
-                  <video key={`vid-${cacheBust}`} src={fullUrl} controls width="100%" style={{ borderRadius: 12 }} />
+                  <video
+                    src={protectedPreviewUrl}
+                    controls
+                    width="100%"
+                    style={{ borderRadius: 12 }}
+                  />
                 ) : kind === "pdf" ? (
-                  <embed key={`pdf-${cacheBust}`} src={fullUrl} type="application/pdf" width="100%" height="300px" />
+                  <embed
+                    src={protectedPreviewUrl}
+                    type="application/pdf"
+                    width="100%"
+                    height="300px"
+                  />
                 ) : kind === "model" ? (
                   <model-viewer
-                    key={`model-${cacheBust}`}
-                    src={fullUrl}
+                    src={protectedPreviewUrl}
                     camera-controls
                     auto-rotate
                     environment-image="neutral"
-                    style={{ width: "100%", height: 300, borderRadius: 12, background: "transparent" }}
+                    style={{
+                      width: "100%",
+                      height: 300,
+                      borderRadius: 12,
+                      background: "transparent",
+                    }}
                   />
                 ) : (
                   <Text>No preview available</Text>
@@ -352,10 +439,27 @@ async function handleUpdate() {
                 <Button
                   colorScheme="blue"
                   onClick={() => {
+                    if (!protectedPreviewUrl) {
+                      toast({
+                        title: "File not ready",
+                        description: "Please wait until the file is loaded.",
+                        status: "warning",
+                      });
+                      return;
+                    }
+
                     if (kind === "model") {
-                      openModelInNewTab({ srcUrl: fullUrlRaw, token, title: asset?.title || "3D Model" });
+                      openModelInNewTab({
+                        srcUrl: protectedPreviewUrl,
+                        token,
+                        title: asset?.title || "3D Model",
+                      });
                     } else {
-                      window.open(fullUrlRaw, "_blank", "noopener,noreferrer");
+                      window.open(
+                        protectedPreviewUrl,
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
                     }
                   }}
                 >
@@ -363,19 +467,26 @@ async function handleUpdate() {
                 </Button>
                 <Button
                   colorScheme="teal"
-                  onClick={async () => {
-                    try {
-                      const r = await fetch(fullUrlRaw, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-                      if (!r.ok) throw new Error("download failed");
-                      const b = await r.blob();
-                      const u = URL.createObjectURL(b);
-                      const a = document.createElement("a");
-                      a.href = u; a.download = asset.title || "download";
-                      document.body.appendChild(a); a.click(); a.remove();
-                      URL.revokeObjectURL(u);
-                    } catch (e) {
-                      toast({ title: "Download failed", status: "error" });
+                  onClick={() => {
+                    if (!protectedPreviewUrl) {
+                      toast({
+                        title: "File not ready",
+                        description: "Please wait until the file is loaded.",
+                        status: "warning",
+                      });
+                      return;
                     }
+
+                    const extension = filePath.split(".").pop()?.split("?")[0] || "";
+                    const filename = `${asset.title || "download"}${extension ? `.${extension}` : ""}`;
+
+                    const link = document.createElement("a");
+                    link.href = protectedPreviewUrl;
+                    link.download = filename;
+
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
                   }}
                 >
                   Download
@@ -566,26 +677,70 @@ async function handleUpdate() {
                     <Text><b>Tags:</b> {previewVersion.tags?.map(t => t.name).join(", ") || "—"}</Text>
                   </VStack>
                   {previewVersion.file && (() => {
-                    const pvRaw = previewVersion.file.startsWith("http") ? previewVersion.file : `${base}${previewVersion.file}`;
-                    const pvUrl = cacheBust ? `${pvRaw}${pvRaw.includes("?") ? "&" : "?"}cb=${cacheBust}` : pvRaw;
                     const k = detectKind(previewVersion.file);
-                    if (k === "image")
-                      return <Image src={pvUrl} maxH="300px" mx="auto" mt={3} rounded="lg" shadow="sm" />;
-                    if (k === "video")
-                      return <video src={pvUrl} controls width="100%" style={{ borderRadius: 12, marginTop: 12 }} />;
-                    if (k === "pdf")
-                      return <embed src={pvUrl} type="application/pdf" width="100%" height="300px" />;
-                    if (k === "model")
+
+                    if (!protectedVersionUrl) {
+                      return <Spinner mt={3} />;
+                    }
+
+                    if (k === "image") {
+                      return (
+                        <Image
+                          src={protectedVersionUrl}
+                          maxH="300px"
+                          mx="auto"
+                          mt={3}
+                          rounded="lg"
+                          shadow="sm"
+                        />
+                      );
+                    }
+
+                    if (k === "video") {
+                      return (
+                        <video
+                          src={protectedVersionUrl}
+                          controls
+                          width="100%"
+                          style={{ borderRadius: 12, marginTop: 12 }}
+                        />
+                      );
+                    }
+
+                    if (k === "pdf") {
+                      return (
+                        <embed
+                          src={protectedVersionUrl}
+                          type="application/pdf"
+                          width="100%"
+                          height="300px"
+                        />
+                      );
+                    }
+
+                    if (k === "model") {
                       return (
                         <model-viewer
-                          src={pvUrl}
+                          src={protectedVersionUrl}
                           camera-controls
                           auto-rotate
                           environment-image="neutral"
-                          style={{ width: "100%", height: 300, borderRadius: 12, background: "transparent", marginTop: 12 }}
+                          style={{
+                            width: "100%",
+                            height: 300,
+                            background: "transparent",
+                            borderRadius: 12,
+                            marginTop: 12,
+                          }}
                         />
                       );
-                    return <Text mt={3}>No file preview available.</Text>;
+                    }
+
+                    return (
+                      <Text mt={3}>
+                        No file preview available.
+                      </Text>
+                    );
                   })()}
                 </ModalBody>
               </ModalContent>

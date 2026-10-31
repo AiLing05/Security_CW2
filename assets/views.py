@@ -4,8 +4,12 @@ from rest_framework.decorators import action
 from django_filters import rest_framework as django_filters
 from .models import User, Asset, Category, Tag, AssetVersion
 from .serializers import (
-    UserSerializer, AssetSerializer, CategorySerializer,
-    TagSerializer, AssetVersionSerializer, MyTokenObtainPairSerializer
+    UserSerializer,
+    AssetSerializer,
+    CategorySerializer,
+    TagSerializer,
+    AssetVersionSerializer,
+    MyTokenObtainPairSerializer,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.throttling import AnonRateThrottle
@@ -19,6 +23,10 @@ from .input_validators import (
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
+from pathlib import Path
+import mimetypes
 
 
 @api_view(["GET"])
@@ -26,11 +34,13 @@ from rest_framework_simplejwt.exceptions import TokenError
 def me_view(request):
     """Return authenticated user's info."""
     user = request.user
-    return Response({
-        "id": user.id,
-        "username": user.username,
-        "role": getattr(user, "role", None),
-    })
+    return Response(
+        {
+            "id": user.id,
+            "username": user.username,
+            "role": getattr(user, "role", None),
+        }
+    )
 
 
 @api_view(["POST"])
@@ -207,7 +217,11 @@ class AssetViewSet(viewsets.ModelViewSet):
     serializer_class = AssetSerializer
     permission_classes = [IsAdminEditorOrReadOnly]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
-    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_class = AssetFilter
     search_fields = ["title", "description", "metadata"]
     ordering_fields = ["uploaded_at", "title"]
@@ -228,7 +242,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                 raw_tags = request.data.get("tags")
 
         tag_names = validate_tags_input(raw_tags)
-        
+
         parent_id = request.data.get("parent")
         parent_asset = Asset.objects.filter(pk=parent_id).first() if parent_id else None
 
@@ -269,7 +283,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             status="approved",
             title=asset.title,
             description=asset.description,
-            category=asset.category
+            category=asset.category,
         )
 
         # Copy validated tags to the initial version.
@@ -278,7 +292,9 @@ class AssetViewSet(viewsets.ModelViewSet):
         return asset
 
     # -------------------- Editor submits new version --------------------
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def request_update(self, request, pk=None):
         """
         Admin and Editor can submit a new version of an asset.
@@ -300,16 +316,11 @@ class AssetViewSet(viewsets.ModelViewSet):
         comment = request.data.get("comment", "")
 
         title = validate_text_input(
-            request.data.get("title", asset.title),
-            "title",
-            120,
-            required=True
+            request.data.get("title", asset.title), "title", 120, required=True
         )
 
         description = validate_text_input(
-            request.data.get("description", asset.description),
-            "description",
-            2000
+            request.data.get("description", asset.description), "description", 2000
         )
 
         category_id = request.data.get("category")
@@ -323,9 +334,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                 category = Category.objects.filter(name=category_id).first()
 
             if category is None:
-                raise ValidationError({
-                    "category": "Please select a valid category."
-                })
+                raise ValidationError({"category": "Please select a valid category."})
 
         tags_input = request.data.get("tags")
         tag_names = validate_tags_input(tags_input)
@@ -363,8 +372,11 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = AssetVersion.objects.select_related("uploaded_by", "asset", "category").prefetch_related(
-            "tags").all()
+        queryset = (
+            AssetVersion.objects.select_related("uploaded_by", "asset", "category")
+            .prefetch_related("tags")
+            .all()
+        )
         asset_id = self.request.query_params.get("asset_id")
         if asset_id:
             queryset = queryset.filter(asset_id=asset_id)
@@ -380,7 +392,9 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
 
         status_value = request.data.get("status")
         if status_value not in ("approved", "rejected"):
-            return Response({"detail": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         instance.status = status_value
         instance.save()
@@ -398,12 +412,14 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
                 asset.tags.set(instance.tags.all())
 
             # Do not overwrite file directly with same FileField instance
-            if instance.file and instance.file.name != (asset.file.name if asset.file else ""):
+            if instance.file and instance.file.name != (
+                asset.file.name if asset.file else ""
+            ):
                 # Keep old file intact — only point to the new version’s copy
                 asset.file.save(
                     instance.file.name.split("/")[-1],  # filename only
                     instance.file.file,  # file object
-                    save=False  # prevent immediate save to avoid double delete
+                    save=False,  # prevent immediate save to avoid double delete
                 )
 
             asset.version = instance.version
@@ -411,3 +427,61 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def protected_asset_file(request, asset_id):
+    asset = get_object_or_404(Asset, pk=asset_id)
+
+    # Use the latest approved file when available.
+    latest = asset.latest_version()
+    stored_file = latest.file if latest and latest.file else asset.file
+
+    if not stored_file:
+        raise Http404("File not found.")
+
+    try:
+        stored_file.open("rb")
+        return FileResponse(
+            stored_file,
+            content_type=mimetypes.guess_type(stored_file.name)[0]
+            or "application/octet-stream",
+            as_attachment=False,
+            filename=Path(stored_file.name).name,
+        )
+    except (FileNotFoundError, OSError):
+        raise Http404("File not found.")
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def protected_version_file(request, version_id):
+    version = get_object_or_404(AssetVersion, pk=version_id)
+
+    # Pending or rejected versions are restricted.
+    if version.status != "approved":
+        is_admin = getattr(request.user, "role", "") == "admin"
+
+        is_uploader = version.uploaded_by_id == request.user.id
+
+        if not (is_admin or is_uploader):
+            return Response(
+                {"detail": "Access denied."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    if not version.file:
+        raise Http404("File not found.")
+
+    try:
+        version.file.open("rb")
+        return FileResponse(
+            version.file,
+            content_type=mimetypes.guess_type(version.file.name)[0]
+            or "application/octet-stream",
+            as_attachment=False,
+            filename=Path(version.file.name).name,
+        )
+    except (FileNotFoundError, OSError):
+        raise Http404("File not found.")

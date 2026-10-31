@@ -13,7 +13,7 @@ BEGIN
     IF TG_OP = 'DELETE' AND current_setting('audit.allow_purge', true) = 'on' THEN
         RETURN OLD;
     END IF;
-    RAISE EXCEPTION 'audit_securityevent is append-only: % is not allowed', TG_OP;
+    RAISE EXCEPTION 'audit_securityevent is append-only: %% is not allowed', TG_OP;
 END;
 $$ LANGUAGE plpgsql;
 
