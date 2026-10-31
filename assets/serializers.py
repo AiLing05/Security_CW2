@@ -3,6 +3,13 @@ from .models import User, Asset, Category, Tag, AssetVersion
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
 from .file_validators import validate_uploaded_file
+import json
+from .input_validators import (
+    validate_text_input,
+    validate_tag_name,
+    validate_category_name,
+    validate_tags_input,
+)
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -113,11 +120,17 @@ class TagSerializer(serializers.ModelSerializer):
         model = Tag
         fields = ["id", "name"]
 
+    def validate_name(self, value):
+        return validate_tag_name(value)
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "name"]
+
+    def validate_name(self, value):
+        return validate_category_name(value)
 
 
 # --------------------------
@@ -152,6 +165,27 @@ class AssetVersionSerializer(serializers.ModelSerializer):
     def validate_file(self, value):
         return validate_uploaded_file(value)
 
+    def validate_title(self, value):
+        if value is None:
+            return value
+        return validate_text_input(
+            value, "title", 120, required=True
+        )
+
+    def validate_description(self, value):
+        if value is None:
+            return value
+        return validate_text_input(
+            value, "description", 2000
+        )
+
+    def validate_category_id(self, value):
+        if not Category.objects.filter(pk=value).exists():
+            raise serializers.ValidationError(
+                "Please select a valid category."
+            )
+        return value
+
 
 # --------------------------
 # Asset Serializer
@@ -183,6 +217,61 @@ class AssetSerializer(serializers.ModelSerializer):
     def validate_file(self, value):
         return validate_uploaded_file(value)
 
+    def validate_title(self, value):
+        return validate_text_input(
+            value, "title", 120, required=True
+        )
+
+    def validate_description(self, value):
+        return validate_text_input(
+            value, "description", 2000
+        )
+
+    def validate_category_id(self, value):
+        if not Category.objects.filter(pk=value).exists():
+            raise serializers.ValidationError(
+                "Please select a valid category."
+            )
+        return value
+
+    def validate_metadata(self, value):
+        if value is None:
+            return value
+
+        if not isinstance(value, dict):
+            raise serializers.ValidationError(
+                "Metadata must be a JSON object."
+            )
+
+        if len(json.dumps(value, ensure_ascii=False)) > 4096:
+            raise serializers.ValidationError(
+                "Metadata is too large."
+            )
+
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        # Require category when creating a new asset.
+        if self.instance is None and not self.initial_data.get("parent"):
+            if not attrs.get("category_id"):
+                raise serializers.ValidationError({
+                    "category_id": "Please select a category."
+                })
+
+        # Prevent clearing category when updating an existing asset.
+        if self.instance is not None:
+            if "category_id" in self.initial_data:
+                raw_category = self.initial_data.get("category_id")
+
+                if raw_category is None or str(raw_category).strip() == "":
+                    raise serializers.ValidationError({
+                        "category_id": "Please select a category."
+                    })
+
+        return attrs
+    
     # Always return latest approved version for frontend
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -209,56 +298,78 @@ class AssetSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         request = self.context.get("request")
         user = getattr(request, "user", None)
+
         category_id = validated_data.pop("category_id", None)
         tag_names = validated_data.pop("tag_names", None)
         tags_data = validated_data.pop("tags", None)
         new_file = validated_data.pop("file", None)
 
-        # Update basic fields
+        # Read tags submitted by the Asset Details page.
+        raw_tags = None
+
+        if request is not None and "tags" in request.data:
+            raw_tags = request.data.get("tags")
+
+        # Validate tags before changing or saving the asset.
+        if raw_tags is not None:
+            validated_tags = validate_tags_input(raw_tags)
+
+        elif tag_names is not None:
+            validated_tags = validate_tags_input(tag_names)
+
+        elif tags_data is not None:
+            names = [
+                item.get("name") if isinstance(item, dict) else item
+                for item in tags_data
+            ]
+            validated_tags = validate_tags_input(names)
+
+        else:
+            validated_tags = None
+
+        # Update basic metadata.
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
-        # Update category
-        if category_id:
-            try:
-                category = Category.objects.get(pk=category_id)
-                instance.category = category
-            except Category.DoesNotExist:
-                pass
+        # Update category.
+        if category_id is not None:
+            instance.category = Category.objects.get(pk=category_id)
 
-        # Update tags from tag_names
-        if tag_names is not None:
+        # Update tags only after validation succeeds.
+        if validated_tags is not None:
             instance.tags.clear()
-            for t in [x.strip() for x in tag_names.split(",") if x.strip()]:
-                tag_obj, _ = Tag.objects.get_or_create(name=t)
+
+            for name in validated_tags:
+                tag_obj, _ = Tag.objects.get_or_create(name=name)
                 instance.tags.add(tag_obj)
 
-        # Update tags from tags_data
-        if tags_data is not None:
-            instance.tags.clear()
-            for t in tags_data:
-                tag_obj, _ = Tag.objects.get_or_create(name=t.get("name"))
-                instance.tags.add(tag_obj)
-
-        # Create new version if file changed or admin edits
+        # Create a new asset version if needed.
         if new_file or (user and user.role == "admin"):
             latest_version = instance.latest_version()
-            version_number = (latest_version.version + 1) if latest_version else 1
+            version_number = (
+                latest_version.version + 1
+                if latest_version else 1
+            )
 
             asset_version = AssetVersion.objects.create(
                 asset=instance,
                 file=new_file if new_file else instance.file,
                 uploaded_by=user if user else None,
                 version=version_number,
-                status="approved" if (user and user.role == "admin") else "pending",
+                status="approved" if (
+                    user and user.role == "admin"
+                ) else "pending",
                 title=validated_data.get("title", instance.title),
-                description=validated_data.get("description", instance.description),
+                description=validated_data.get(
+                    "description", instance.description
+                ),
                 category=instance.category,
             )
 
-            # Copy tags
+            # Copy validated tags into the new version.
             for tag in instance.tags.all():
                 asset_version.tags.add(tag)
 
         instance.save()
         return instance
+

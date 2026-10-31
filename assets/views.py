@@ -13,6 +13,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from .file_validators import validate_uploaded_file
 from rest_framework.exceptions import ValidationError
+from .input_validators import (
+    validate_tags_input,
+    validate_text_input,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -213,12 +217,18 @@ class AssetViewSet(viewsets.ModelViewSet):
         Handle both initial uploads and creation of new asset versions.
         """
         request = self.request
+
         if hasattr(request.data, "getlist"):
-            tags = request.data.getlist("tags[]")
-            if not tags:
-                tags = request.data.getlist("tags")
+            raw_tags = request.data.getlist("tags[]")
+            if not raw_tags:
+                raw_tags = request.data.getlist("tags")
         else:
-            tags = request.data.get("tags[]") or request.data.get("tags")
+            raw_tags = request.data.get("tags[]")
+            if raw_tags is None:
+                raw_tags = request.data.get("tags")
+
+        tag_names = validate_tags_input(raw_tags)
+        
         parent_id = request.data.get("parent")
         parent_asset = Asset.objects.filter(pk=parent_id).first() if parent_id else None
 
@@ -245,19 +255,13 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         # Otherwise, it's a new asset (admins only — enforced by permission)
         asset = serializer.save(uploaded_by=request.user)
-        if tags:
-            if isinstance(tags, str):
-                tags = tags.split(",")
 
-            for tag in tags:
-                for name in tag.split(","):
-                    tname = name.strip()
-                    if tname:
-                        tag_obj, _ = Tag.objects.get_or_create(name=tname)
-                        asset.tags.add(tag_obj)
+        for tname in tag_names:
+            tag_obj, _ = Tag.objects.get_or_create(name=tname)
+            asset.tags.add(tag_obj)
 
         # Create initial version entry automatically
-        AssetVersion.objects.create(
+        initial_version = AssetVersion.objects.create(
             asset=asset,
             file=asset.file,
             uploaded_by=request.user,
@@ -267,6 +271,9 @@ class AssetViewSet(viewsets.ModelViewSet):
             description=asset.description,
             category=asset.category
         )
+
+        # Copy validated tags to the initial version.
+        initial_version.tags.set(asset.tags.all())
 
         return asset
 
@@ -291,21 +298,37 @@ class AssetViewSet(viewsets.ModelViewSet):
             validate_uploaded_file(file)
 
         comment = request.data.get("comment", "")
-        title = request.data.get("title", asset.title)
-        description = request.data.get("description", asset.description)
+
+        title = validate_text_input(
+            request.data.get("title", asset.title),
+            "title",
+            120,
+            required=True
+        )
+
+        description = validate_text_input(
+            request.data.get("description", asset.description),
+            "description",
+            2000
+        )
 
         category_id = request.data.get("category")
+        category = asset.category
 
-        # allow category ID or name
-        category = None
-        if category_id:
+        if category_id not in (None, ""):
             try:
                 category_int = int(category_id)
                 category = Category.objects.filter(id=category_int).first()
             except (ValueError, TypeError):
                 category = Category.objects.filter(name=category_id).first()
 
-        tags_input = request.data.get("tags")  # comma separated
+            if category is None:
+                raise ValidationError({
+                    "category": "Please select a valid category."
+                })
+
+        tags_input = request.data.get("tags")
+        tag_names = validate_tags_input(tags_input)
 
         last_version = asset.version or 1
         new_version = last_version + 1
@@ -323,12 +346,10 @@ class AssetViewSet(viewsets.ModelViewSet):
             category=category,
         )
 
-        # Set tags if provided
-        if tags_input:
-            tag_names = [t.strip() for t in tags_input.split(",") if t.strip()]
-            for tname in tag_names:
-                tag_obj, _ = Tag.objects.get_or_create(name=tname)
-                version.tags.add(tag_obj)
+        # Set validated tags if provided
+        for tname in tag_names:
+            tag_obj, _ = Tag.objects.get_or_create(name=tname)
+            version.tags.add(tag_obj)
 
         serializer = AssetVersionSerializer(version, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
