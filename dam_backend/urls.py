@@ -45,3 +45,9 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("", home),
 ]
+
+# Safe error handlers
+handler400 = "dam_backend.error_views.bad_request"
+handler403 = "dam_backend.error_views.permission_denied"
+handler404 = "dam_backend.error_views.page_not_found"
+handler500 = "dam_backend.error_views.server_error"

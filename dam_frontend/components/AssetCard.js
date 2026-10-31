@@ -3,6 +3,7 @@
 import { Box, Text, Button, Heading, Divider, HStack, Image } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { fetchProtectedFile } from "../utils/protectedFiles";
 
 // Detect file type
 const detectKind = (name = "") => {
@@ -48,7 +49,7 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
   const base = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "";
   const [asset, setAsset] = useState(initialAsset || null);
   const [loading, setLoading] = useState(!initialAsset);
-  const cacheBust = Date.now();
+  const [protectedUrl, setProtectedUrl] = useState(null);
 
   // Fetch latest asset from backend if no full asset is passed
   useEffect(() => {
@@ -65,9 +66,47 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
       .finally(() => setLoading(false));
   }, [asset, assetId, base]);
 
+  // Load asset preview using JWT authentication.
+  useEffect(() => {
+    if (!asset?.id) return;
+
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    let active = true;
+    let objectUrl = null;
+
+    setProtectedUrl(null);
+
+    fetchProtectedFile(
+      `${process.env.NEXT_PUBLIC_API_URL}/assets/${asset.id}/file/`,
+      token
+    )
+      .then((url) => {
+        objectUrl = url;
+
+        if (active) {
+          setProtectedUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          console.error("Dashboard preview error:", error);
+        }
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [asset?.id, asset?.file]);
+
   if (loading || !asset) return <Box>Loading...</Box>;
 
-  const fileUrl = asset.file?.startsWith("http") ? asset.file : `${base}${asset.file}`;
   const kind = detectKind(asset.file || "");
 
   return (
@@ -76,23 +115,55 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
       <Text fontSize="sm" color="gray.600" noOfLines={2}>{asset.description || "No description available."}</Text>
       <Divider my={3} />
 
-      {kind === "image" && (
-        <Image src={`${fileUrl}?cb=${cacheBust}`} alt={asset.title} mb={3} maxH="200px" objectFit="cover" borderRadius="md" />
+      {kind === "image" && protectedUrl && (
+        <Image
+          src={protectedUrl}
+          alt={asset.title}
+          mb={3}
+          maxH="200px"
+          objectFit="cover"
+          borderRadius="md"
+        />
       )}
-      {kind === "video" && (
-        <video key={fileUrl + cacheBust} src={`${fileUrl}?cb=${cacheBust}`} controls style={{ width: "100%", borderRadius: 12, marginBottom: 12 }} />
+
+      {kind === "video" && protectedUrl && (
+        <video
+          src={protectedUrl}
+          controls
+          style={{
+            width: "100%",
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        />
       )}
-      {kind === "pdf" && (
-        <embed key={fileUrl + cacheBust} src={`${fileUrl}?cb=${cacheBust}`} type="application/pdf" width="100%" height="200px" style={{ borderRadius: 12, marginBottom: 12 }} />
+
+      {kind === "pdf" && protectedUrl && (
+        <embed
+          src={protectedUrl}
+          type="application/pdf"
+          width="100%"
+          height="200px"
+          style={{
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        />
       )}
-      {kind === "model" && (
+
+      {kind === "model" && protectedUrl && (
         <model-viewer
-          key={fileUrl + cacheBust}
-          src={`${fileUrl}?cb=${cacheBust}`}
+          src={protectedUrl}
           camera-controls
           auto-rotate
           environment-image="neutral"
-          style={{ width: "100%", height: 300, borderRadius: 12, background: "transparent", marginBottom: 12 }}
+          style={{
+            width: "100%",
+            height: 300,
+            borderRadius: 12,
+            background: "transparent",
+            marginBottom: 12,
+          }}
         />
       )}
 
@@ -102,11 +173,21 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
           size="sm"
           variant="outline"
           onClick={() => {
+            if (!protectedUrl) {
+              alert("The file is still loading. Please try again.");
+              return;
+            }
+
             const token = localStorage.getItem("access_token");
+
             if (kind === "model") {
-              openModelInNewTab({ srcUrl: `${fileUrl}?cb=${cacheBust}`, token, title: asset.title || "3D Model" });
+              openModelInNewTab({
+                srcUrl: protectedUrl,
+                token,
+                title: asset.title || "3D Model",
+              });
             } else {
-              window.open(`${fileUrl}?cb=${cacheBust}`, "_blank");
+              window.open(protectedUrl, "_blank", "noopener,noreferrer");
             }
           }}
         >
