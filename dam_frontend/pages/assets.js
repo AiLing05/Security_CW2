@@ -229,6 +229,28 @@ export default function AssetsPage() {
       return;
     }
 
+    if (!categoryId) {
+      toast({
+        title: "Missing category",
+        description: "Please select a category before uploading.",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (categoryId === "Others" && !customCategory.trim()) {
+      toast({
+        title: "Missing category",
+        description: "Please enter a custom category name.",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     if (!selectedFile) {
       toast({
         title: "Missing file",
@@ -250,7 +272,38 @@ export default function AssetsPage() {
           },
           body: JSON.stringify({ name: customCategory }),
         });
-        if (!categoryRes.ok) throw new Error("Failed to create custom category");
+
+        if (!categoryRes.ok) {
+          let message = "Unable to create the category. Please try again.";
+
+          try {
+            const errorData = await categoryRes.json();
+
+            const getErrorMessage = (data) => {
+              if (typeof data === "string") return data;
+
+              if (Array.isArray(data)) {
+                return data.length ? getErrorMessage(data[0]) : "";
+              }
+
+              if (data && typeof data === "object") {
+                for (const value of Object.values(data)) {
+                  const result = getErrorMessage(value);
+                  if (result) return result;
+                }
+              }
+
+              return "";
+            };
+
+            message = getErrorMessage(errorData) || message;
+          } catch {
+            // Keep the general message if the response is not JSON.
+          }
+
+          throw new Error(message);
+        }
+
         const newCat = await categoryRes.json();
         finalCategoryId = newCat.id;
       } else {
@@ -287,16 +340,30 @@ export default function AssetsPage() {
         try {
           const errorData = await res.json();
 
-          const fileError = Array.isArray(errorData.file)
-            ? errorData.file[0]
-            : errorData.file;
+          // Read error messages returned by the backend.
+          const getErrorMessage = (data) => {
+            if (typeof data === "string") {
+              return data;
+            }
 
-          if (fileError === "Unsupported file extension.") {
-            message = "This file type is not supported. Please select a supported file.";
-          } else if (fileError) {
-            message = fileError;
-          } else if (errorData.detail) {
-            message = errorData.detail;
+            if (Array.isArray(data)) {
+              return data.length ? getErrorMessage(data[0]) : "";
+            }
+
+            if (data && typeof data === "object") {
+              for (const value of Object.values(data)) {
+                const result = getErrorMessage(value);
+                if (result) return result;
+              }
+            }
+
+            return "";
+          };
+
+          const backendMessage = getErrorMessage(errorData);
+
+          if (backendMessage) {
+            message = backendMessage;
           }
         } catch {
           // Show a general message if the server response is not JSON.
@@ -332,7 +399,7 @@ export default function AssetsPage() {
           <Box bg="gray.50" p={6} rounded="xl" shadow="sm" mb={8}>
             <Heading size="md" mb={4}>Upload New Asset</Heading>
             <VStack align="stretch" spacing={4}>
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Title</FormLabel>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter asset title" />
               </FormControl>
@@ -340,7 +407,7 @@ export default function AssetsPage() {
                 <FormLabel>Description</FormLabel>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Enter a short description" />
               </FormControl>
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Category</FormLabel>
                 <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} placeholder="Select category">
                   {staticCategories.map((cat) => (
@@ -349,7 +416,7 @@ export default function AssetsPage() {
                 </Select>
               </FormControl>
               {categoryId === "Others" && (
-                <FormControl>
+                <FormControl isRequired>
                   <FormLabel>Custom Category</FormLabel>
                   <Input value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="Enter custom category" />
                 </FormControl>
@@ -358,7 +425,7 @@ export default function AssetsPage() {
                 <FormLabel>Tags</FormLabel>
                 <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Comma-separated tags" />
               </FormControl>
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>File</FormLabel>
 
                 <UploadDropzone

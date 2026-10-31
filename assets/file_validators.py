@@ -28,7 +28,7 @@ def validate_uploaded_file(file):
     extension = Path(file.name).suffix.lower()
 
     if extension not in ALLOWED_TYPES:
-        raise ValidationError("Unsupported file extension.")
+        raise ValidationError("This file type is not supported. Please select a supported file.")
 
     # MIME type
     mime = getattr(file, "content_type", "") or ""

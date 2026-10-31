@@ -137,16 +137,26 @@ async function handleUpdate() {
   try {
     if (!token) return;
 
+    if (!updated.category_id) {
+      toast({
+        title: "Missing category",
+        description: "Please select a category.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     const fd = new FormData();
     fd.append("title", updated.title ?? "");
     fd.append("description", updated.description ?? "");
     fd.append("tags", updated.tags ?? "");
 
-    const catId = updated.category_id ? String(updated.category_id) : "";
-    if (catId) {
-      fd.append("category", catId);
-      fd.append("category_id", catId);
-    }
+    const catId = String(updated.category_id);
+
+    fd.append("category", catId);
+    fd.append("category_id", catId);
     if (updated.file) fd.append("file", updated.file);
 
     if (role === "editor") {
@@ -192,28 +202,38 @@ async function handleUpdate() {
     const rawError = String(e.message || e || "");
 
     let message = "Unable to update the asset. Please try again.";
-    let fileError = rawError;
+
+    // Read validation messages returned by the backend.
+    const getErrorMessage = (data) => {
+      if (typeof data === "string") {
+        return data;
+      }
+
+      if (Array.isArray(data)) {
+        return data.length ? getErrorMessage(data[0]) : "";
+      }
+
+      if (data && typeof data === "object") {
+        for (const value of Object.values(data)) {
+          const result = getErrorMessage(value);
+          if (result) return result;
+        }
+      }
+
+      return "";
+    };
 
     try {
       const errorData = JSON.parse(rawError);
 
-      fileError = Array.isArray(errorData.file)
-        ? errorData.file[0]
-        : errorData.file || errorData.detail || rawError;
-    } catch {
-      // Handle plain-text error messages.
-    }
+      // Display backend validation messages directly.
+      const backendMessage = getErrorMessage(errorData);
 
-    if (fileError.includes("Unsupported file extension")) {
-      message = "This file type is not supported. Please select a supported file.";
-    } else if (fileError.includes("File MIME type does not match")) {
-      message = "The selected file format is not valid. Please choose another file.";
-    } else if (fileError.includes("File content does not match")) {
-      message = "The file content does not match its format. Please select a valid file.";
-    } else if (fileError.includes("File size must not exceed")) {
-      message = "The selected file is too large. Maximum file size is 50 MB.";
-    } else if (fileError.includes("Empty files are not allowed")) {
-      message = "The selected file is empty. Please choose another file.";
+      if (backendMessage) {
+        message = backendMessage;
+      }
+    } catch {
+      // Keep the general message for non-JSON errors.
     }
 
     toast({
