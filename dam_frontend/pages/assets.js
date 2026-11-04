@@ -59,7 +59,7 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
 <html><head>
 <meta charset="utf-8"/><title>${safeTitle}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<script type="module" src="https://unpkg.com/@google/model-viewer@latest/dist/model-viewer.min.js"></script>
+<script type="module" src="/vendor/model-viewer.min.js"></script>
 <style>
   html,body{height:100%;margin:0;background:#0b1020;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;}
   model-viewer{width:100vw;height:100vh;background:transparent;}
