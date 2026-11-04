@@ -33,7 +33,7 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
     w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<script type="module" src="https://unpkg.com/@google/model-viewer@latest/dist/model-viewer.min.js"></script>
+<script type="module" src="/vendor/model-viewer.min.js"></script>
 <style>html,body{margin:0;height:100%;}model-viewer{width:100vw;height:100vh;}</style>
 </head><body>
 <model-viewer src="${objectUrl}" camera-controls auto-rotate environment-image="neutral"></model-viewer>
