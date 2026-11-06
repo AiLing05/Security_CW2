@@ -22,32 +22,50 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env", override=False)
 
 # Quick-start development settings - unsuitable for production
+
 SECRET_KEY = required("DJANGO_SECRET_KEY")
 SECURE_DEMO = boolean("DJANGO_SECURE_DEMO", True)
 DEBUG = boolean("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = csv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
 if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
-    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must list explicit hostnames.")
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must list explicit hostnames."
+    )
+
 if SECURE_DEMO and DEBUG:
-    raise ImproperlyConfigured("Debug must be disabled in the secure demo.")
-if SECURE_DEMO and (len(SECRET_KEY) < 50 or len(set(SECRET_KEY)) < 5 or SECRET_KEY.startswith("django-insecure-")):
-    raise ImproperlyConfigured("Use a random DJANGO_SECRET_KEY of at least 50 characters.")
+    raise ImproperlyConfigured(
+        "Debug must be disabled in the secure demo."
+    )
+
+if SECURE_DEMO and (
+    len(SECRET_KEY) < 50
+    or len(set(SECRET_KEY)) < 5
+    or SECRET_KEY.startswith("django-insecure-")
+):
+    raise ImproperlyConfigured(
+        "Use a random DJANGO_SECRET_KEY of at least 50 characters."
+    )
 
 SECURE_SSL_REDIRECT = SECURE_DEMO
-SECURE_PROXY_SSL_HEADER = None  # a middleware validates the peer before trusting headers
+SECURE_PROXY_SSL_HEADER = None  # Middleware validates the peer before trusting headers
+
 SESSION_COOKIE_SECURE = SECURE_DEMO
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+
 CSRF_COOKIE_SECURE = SECURE_DEMO
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_TRUSTED_ORIGINS = []  # admin uses its own API origin; JWT requests don't use cookies
+CSRF_TRUSTED_ORIGINS = []
+
 SECURE_HSTS_SECONDS = 300 if SECURE_DEMO else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
 
 # Application definition
 INSTALLED_APPS = [
