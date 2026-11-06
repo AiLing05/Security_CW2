@@ -569,3 +569,57 @@ def test_non_staff_cannot_delete_another_user(api_client, test_user):
 
     assert response.status_code == 403
     assert User.objects.filter(pk=target.id).exists()
+
+
+@pytest.mark.django_db
+def test_staff_viewer_cannot_manage_users(api_client):
+    staff_viewer = User.objects.create_user(
+        username="staff_viewer",
+        password="SecureViewerPassword123!",
+        role="viewer",
+        is_staff=True,
+    )
+    target = User.objects.create_user(
+        username="protected_role_target",
+        password="OriginalSecurePassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=staff_viewer)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"role": "admin"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    target.refresh_from_db()
+    assert target.role == "viewer"
+
+
+@pytest.mark.django_db
+def test_staff_application_admin_can_manage_users(api_client):
+    admin = User.objects.create_superuser(
+        username="authorized_role_admin",
+        password="SecureAdminPassword123!",
+    )
+    target = User.objects.create_user(
+        username="authorized_role_target",
+        password="SecureTargetPassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=admin)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"role": "editor"},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+
+    target.refresh_from_db()
+    assert target.role == "editor"

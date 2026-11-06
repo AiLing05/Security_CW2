@@ -160,10 +160,23 @@ class IsAdminEditorOrReadOnly(permissions.BasePermission):
 # ---------------------------------------------------------------------
 # USER MANAGEMENT (Admin only)
 # ---------------------------------------------------------------------
+class IsStaffApplicationAdmin(permissions.BasePermission):
+    """Require Django staff status and the application admin role."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_staff
+            and getattr(user, "role", None) == "admin"
+        )
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  # keep using Django admin check here
+    permission_classes = [IsStaffApplicationAdmin]
 
 
 # ---------------------------------------------------------------------
