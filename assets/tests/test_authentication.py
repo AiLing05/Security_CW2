@@ -513,3 +513,59 @@ def test_staff_admin_updates_password_securely(api_client):
     assert target.check_password("UpdatedSecurePassword123!")
     assert not target.check_password("OriginalSecurePassword123!")
     assert "password" not in response.data
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_change_another_users_password(api_client, test_user):
+    target = User.objects.create_user(
+        username="protected_password_target",
+        password="OriginalSecurePassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"password": "UnauthorizedPassword123!"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    target.refresh_from_db()
+    assert target.check_password("OriginalSecurePassword123!")
+    assert not target.check_password("UnauthorizedPassword123!")
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_promote_self_to_admin(api_client, test_user):
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.patch(
+        f"/api/users/{test_user.id}/",
+        {"role": "admin", "is_staff": True},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    test_user.refresh_from_db()
+    assert test_user.role == "viewer"
+    assert test_user.is_staff is False
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_delete_another_user(api_client, test_user):
+    target = User.objects.create_user(
+        username="protected_delete_target",
+        password="SecureTargetPassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.delete(f"/api/users/{target.id}/")
+
+    assert response.status_code == 403
+    assert User.objects.filter(pk=target.id).exists()
