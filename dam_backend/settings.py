@@ -95,7 +95,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "dam_db",
         "USER": "dam_user",
-        "PASSWORD": os.getenv("DB_PASSWORD", "dam_password"),
+        "PASSWORD": os.environ["DB_PASSWORD"] if PRODUCTION else os.getenv("DB_PASSWORD", "dam_password"),
         "HOST": "localhost",
         "PORT": "5432",
     }
