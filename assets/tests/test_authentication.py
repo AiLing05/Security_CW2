@@ -275,7 +275,6 @@ def test_logout_blacklists_refresh_token(api_client, test_user):
     assert refresh_response.status_code == 401
 
 
-
 @pytest.mark.django_db
 def test_logout_rejects_missing_refresh_token(api_client, test_user):
     from rest_framework_simplejwt.tokens import RefreshToken
@@ -347,3 +346,170 @@ def test_logout_cannot_revoke_another_users_token(api_client, test_user):
     )
 
     assert refresh_response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_expired_access_token_is_rejected(api_client, test_user):
+    from datetime import timedelta
+    from rest_framework_simplejwt.tokens import AccessToken
+
+    # Create an access token that expired one minute ago.
+    token = AccessToken.for_user(test_user)
+    token.set_exp(
+        from_time=token.current_time,
+        lifetime=timedelta(minutes=-1),
+    )
+
+    # Attempt to access an authenticated endpoint.
+    api_client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {str(token)}"
+    )
+
+    response = api_client.get("/api/me/")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_expired_refresh_token_is_rejected(api_client, test_user):
+    from datetime import timedelta
+    from rest_framework_simplejwt.tokens import RefreshToken
+
+    # Create a refresh token that expired one minute ago.
+    token = RefreshToken.for_user(test_user)
+    token.set_exp(
+        from_time=token.current_time,
+        lifetime=timedelta(minutes=-1),
+    )
+
+    # Attempt to exchange the expired refresh token.
+    response = api_client.post(
+        "/api/token/refresh/",
+        {"refresh": str(token)},
+        format="json",
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_login_does_not_enumerate_users(api_client, test_user):
+    from django.core.cache import cache
+
+    cache.clear()
+
+    wrong_password = api_client.post(
+        "/api/token/",
+        {
+            "username": test_user.username,
+            "password": "IncorrectPassword123!",
+        },
+        format="json",
+    )
+
+    unknown_user = api_client.post(
+        "/api/token/",
+        {
+            "username": "nonexistent_security_user",
+            "password": "IncorrectPassword123!",
+        },
+        format="json",
+    )
+
+    assert wrong_password.status_code == 401
+    assert unknown_user.status_code == 401
+    assert wrong_password.data == unknown_user.data
+
+
+@pytest.mark.django_db
+def test_anonymous_user_cannot_create_accounts(api_client):
+    response = api_client.post(
+        "/api/users/",
+        {
+            "username": "unauthorized_new_user",
+            "password": "SecureNewPassword123!",
+            "role": "viewer",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 401
+    assert not User.objects.filter(
+        username="unauthorized_new_user"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_non_staff_user_cannot_create_accounts(api_client, test_user):
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.post(
+        "/api/users/",
+        {
+            "username": "unauthorized_new_user",
+            "password": "SecureNewPassword123!",
+            "role": "viewer",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert not User.objects.filter(
+        username="unauthorized_new_user"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_staff_admin_creates_user_with_hashed_password(api_client):
+    admin = User.objects.create_superuser(
+        username="security_admin",
+        password="SecureAdminPassword123!",
+    )
+    api_client.force_authenticate(user=admin)
+
+    response = api_client.post(
+        "/api/users/",
+        {
+            "username": "new_security_viewer",
+            "password": "SecureViewerPassword123!",
+            "role": "viewer",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201, response.data
+
+    new_user = User.objects.get(username="new_security_viewer")
+    assert new_user.password.startswith("argon2$")
+    assert new_user.check_password("SecureViewerPassword123!")
+    assert "password" not in response.data
+
+
+@pytest.mark.django_db
+def test_staff_admin_updates_password_securely(api_client):
+    admin = User.objects.create_superuser(
+        username="security_admin",
+        password="SecureAdminPassword123!",
+    )
+    target = User.objects.create_user(
+        username="password_update_target",
+        password="OriginalSecurePassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=admin)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"password": "UpdatedSecurePassword123!"},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+
+    target.refresh_from_db()
+
+    assert target.password.startswith("argon2$")
+    assert target.check_password("UpdatedSecurePassword123!")
+    assert not target.check_password("OriginalSecurePassword123!")
+    assert "password" not in response.data
