@@ -29,6 +29,14 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Production security settings (disabled for local HTTP development).
+PRODUCTION = os.getenv("DJANGO_PRODUCTION", "False").lower() == "true"
+
+SECURE_SSL_REDIRECT = PRODUCTION
+SESSION_COOKIE_SECURE = PRODUCTION
+CSRF_COOKIE_SECURE = PRODUCTION
+SECURE_HSTS_SECONDS = 31536000 if PRODUCTION else 0
+
 # Application definition
 INSTALLED_APPS = [
     # Django default apps
@@ -87,7 +95,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "dam_db",
         "USER": "dam_user",
-        "PASSWORD": "dam_password",
+        "PASSWORD": os.getenv("DB_PASSWORD", "dam_password"),
         "HOST": "localhost",
         "PORT": "5432",
     }
