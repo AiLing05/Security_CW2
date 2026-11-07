@@ -1,0 +1,46 @@
+
+> dam_frontend@1.0.0 prebuild
+> node scripts/copy-model-viewer.cjs
+
+
+> dam_frontend@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.29
+
+   Linting and checking validity of types ...
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 6.4s
+   Collecting page data ...
+   Generating static pages (0/12) ...
+   Generating static pages (3/12) 
+   Generating static pages (6/12) 
+   Generating static pages (9/12) 
+ ✓ Generating static pages (12/12)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (pages)                                 Size  First Load JS
+┌ ○ / (1120 ms)                              302 B         178 kB
+├   /_app                                      0 B         178 kB
+├ ƒ /_appWrapper                             417 B         178 kB
+├ ○ /404                                   2.28 kB         180 kB
+├ ○ /admin/security                        5.62 kB         187 kB
+├ ○ /admin/update-requests (1124 ms)       5.76 kB         198 kB
+├ ○ /admin/users                           4.09 kB         186 kB
+├ ƒ /api/[...path]                             0 B         178 kB
+├ ○ /assets (1122 ms)                      7.18 kB         189 kB
+├ ○ /assets/[id] (1120 ms)                 7.83 kB         204 kB
+├ ○ /dashboard (6294 ms)                   7.24 kB         185 kB
+├ ○ /login (1120 ms)                       2.48 kB         184 kB
+├ ○ /metadata (1122 ms)                    6.24 kB         188 kB
+└ ○ /security (1122 ms)                    2.04 kB         180 kB
++ First Load JS shared by all               178 kB
+  ├ chunks/framework-a6e0b7e30f98059a.js   44.8 kB
+  ├ chunks/main-37f2977504bf89ff.js        34.6 kB
+  ├ chunks/pages/_app-8b1173bc629122d3.js  96.7 kB
+  └ other shared chunks (total)             1.9 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

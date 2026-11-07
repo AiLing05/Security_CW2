@@ -1,0 +1,33 @@
+
+> dam_frontend@1.0.0 test:auth
+> node --test tests/authProxy.test.cjs tests/browserSession.test.cjs tests/api.test.mjs tests/cookieRefresh.test.mjs
+
+✔ rejected cookie refresh expires the current UI session (123.4734ms)
+✔ temporary refresh failure does not expire the session (9.6649ms)
+✔ network refresh failure preserves the session (7.4086ms)
+✔ successful refresh retries once and a second 401 cannot loop (10.0818ms)
+✔ new login aborts an old refresh and old rejection cannot expire the new session (14.2049ms)
+✔ a new session gets its own refresh rather than sharing an older one (8.675ms)
+✔ logout waits for rotation before asking the server to revoke the refresh cookie (7.2547ms)
+✔ login, refresh, logout and mutations reject missing/incorrect CSRF or foreign origins (439.4099ms)
+✔ login exposes no JWTs in JSON and issues host-only Secure HttpOnly Strict cookies (67.2249ms)
+✔ refresh uses only its HttpOnly cookie and replaces both rotated tokens (48.1339ms)
+✔ logout blacklists the cookie refresh token and expires both auth cookies (31.9974ms)
+✔ rejected refresh clears cookies without returning backend tokens (60.1152ms)
+✔ file retrieval streams bytes and ignores browser-supplied Bearer credentials (58.7928ms)
+✔ authenticated multipart uploads preserve content type, body and search parameters (46.6312ms)
+✔ duplicate auth cookies, unknown paths and GET auth requests fail closed (56.2903ms)
+✔ configuration rejects remote plaintext and credentials in the upstream URL (5.0528ms)
+✔ session initialization removes all legacy stored credentials and keeps only profile metadata (18.3919ms)
+✔ API requests stay same-origin, attach CSRF, discard Bearer headers and share one refresh (158.426ms)
+✔ an expired CSRF cookie is recovered once; permission errors are not retried (17.5529ms)
+✔ server refresh failure does not clear existing HttpOnly cookies (253.9457ms)
+✔ network refresh failure does not clear existing HttpOnly cookies (74.2606ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2432.8284
