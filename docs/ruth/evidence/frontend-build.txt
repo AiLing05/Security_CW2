@@ -13,9 +13,9 @@
  ✓ Compiled successfully in 6.4s
    Collecting page data ...
    Generating static pages (0/12) ...
-   Generating static pages (3/12) 
-   Generating static pages (6/12) 
-   Generating static pages (9/12) 
+   Generating static pages (3/12)
+   Generating static pages (6/12)
+   Generating static pages (9/12)
  ✓ Generating static pages (12/12)
    Finalizing page optimization ...
    Collecting build traces ...
@@ -43,4 +43,3 @@ Route (pages)                                 Size  First Load JS
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
-

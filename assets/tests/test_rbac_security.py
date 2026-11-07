@@ -245,4 +245,3 @@ class RBACSecurityTests(TestCase):
         self.owner.user_permissions.set(Permission.objects.filter(content_type__app_label='assets'))
         self.client.force_login(self.owner)
         self.assertEqual(self.client.get('/admin/assets/user/').status_code, 403)
-
