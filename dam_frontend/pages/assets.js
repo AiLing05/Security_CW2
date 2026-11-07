@@ -1,3 +1,5 @@
+import { isAuthenticated } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -41,9 +43,7 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
   try {
     let objectUrl = null;
     try {
-      const res = await fetch(srcUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await apiFetch(srcUrl);
       if (!res.ok) throw new Error("fetch failed");
       const blob = await res.blob();
       objectUrl = URL.createObjectURL(blob);
@@ -126,11 +126,11 @@ function AssetCard({ asset }) {
           size="sm"
           variant="outline"
           onClick={async () => {
-            const token = localStorage.getItem("access_token");
+            const token = isAuthenticated();
 
             try {
               const protectedUrl =
-                `${process.env.NEXT_PUBLIC_API_URL}/assets/${asset.id}/file/`;
+                `/api/assets/${asset.id}/file/`;
 
               if (kind === "model") {
                 await openModelInNewTab({
@@ -189,7 +189,7 @@ export default function AssetsPage() {
   ];
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
     if (!t) return;
     setToken(t);
@@ -217,10 +217,10 @@ export default function AssetsPage() {
 
   async function fetchCategories(t) {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/categories/`,
+      const res = await apiFetch(
+        `/api/categories/`,
         {
-          headers: { Authorization: `Bearer ${t}` },
+
         },
       );
       const data = await res.json();
@@ -228,21 +228,20 @@ export default function AssetsPage() {
 
       for (const name of staticCategories.filter((c) => c !== "Others")) {
         if (!catList.some((c) => c.name === name)) {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/`, {
+          await apiFetch(`/api/categories/`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${t}`,
-            },
+              },
             body: JSON.stringify({ name }),
           });
         }
       }
 
-      const updated = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/categories/`,
+      const updated = await apiFetch(
+        `/api/categories/`,
         {
-          headers: { Authorization: `Bearer ${t}` },
+
         },
       );
       const finalCats = await updated.json();
@@ -299,14 +298,13 @@ export default function AssetsPage() {
     try {
       let finalCategoryId = null;
       if (categoryId === "Others" && customCategory) {
-        const categoryRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/categories/`,
+        const categoryRes = await apiFetch(
+          `/api/categories/`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
+              },
             body: JSON.stringify({ name: customCategory }),
           },
         );
@@ -356,9 +354,9 @@ export default function AssetsPage() {
       if (finalCategoryId) formData.append("category_id", finalCategoryId);
       if (tag) formData.append("tags", tag);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assets/`, {
+      const res = await apiFetch(`/api/assets/`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+
         body: formData,
       });
 

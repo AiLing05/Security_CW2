@@ -1,3 +1,6 @@
+import { isAuthenticated } from "../../lib/browserSession";
+import { apiFetch } from "../../lib/apiFetch";
+import { fetchProtectedFile } from "../../utils/protectedFiles";
 // pages/admin/update-requests.js
 import { useEffect, useState } from "react";
 import {
@@ -28,15 +31,28 @@ export default function UpdateRequests() {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
   const [previewVersion, setPreviewVersion] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("pending");
   const toast = useToast();
   const router = useRouter();
 
-  const base = process.env.NEXT_PUBLIC_API_URL.replace("/api", "");
+  useEffect(() => {
+    let active = true;
+    let objectUrl;
+    setPreviewUrl(null);
+    if (previewVersion) {
+      fetchProtectedFile(`/api/versions/${previewVersion.id}/file/`).then((url) => {
+        objectUrl = url;
+        if (active) setPreviewUrl(url);
+        else URL.revokeObjectURL(url);
+      }).catch(() => { if (active) toast({ title: "Preview could not be loaded", status: "error" }); });
+    }
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [previewVersion]);
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
 
     if (!t) {
@@ -61,9 +77,7 @@ export default function UpdateRequests() {
 
   async function fetchRequests(t) {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/versions/`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const res = await apiFetch(`/api/versions/`);
       const data = await res.json();
       const versionList = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
 
@@ -72,9 +86,7 @@ export default function UpdateRequests() {
         versionList.map(async (v) => {
           if (!v.asset && v.asset_id) {
             try {
-              const resAsset = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assets/${v.asset_id}/`, {
-                headers: { Authorization: `Bearer ${t}` },
-              });
+              const resAsset = await apiFetch(`/api/assets/${v.asset_id}/`);
               const assetData = await resAsset.json();
               return { ...v, asset: assetData };
             } catch (err) {
@@ -98,10 +110,9 @@ export default function UpdateRequests() {
 
   async function handleApproval(id, approve = true) {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/versions/${id}/`, {
+      const res = await apiFetch(`/api/versions/${id}/`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status: approve ? "approved" : "rejected" }),
@@ -235,13 +246,13 @@ export default function UpdateRequests() {
                 {previewVersion.file ? (
                   /\.(jpg|jpeg|png|webp)$/i.test(previewVersion.file) ? (
                     <img
-                      src={previewVersion.file.startsWith("http") ? previewVersion.file : `${base}${previewVersion.file}`}
+                      src={previewUrl || undefined}
                       alt="Preview"
                       style={{ maxHeight: "300px", display: "block", margin: "12px auto", borderRadius: "8px" }}
                     />
                   ) : previewVersion.file.endsWith(".mp4") ? (
                     <video
-                      src={previewVersion.file.startsWith("http") ? previewVersion.file : `${base}${previewVersion.file}`}
+                      src={previewUrl || undefined}
                       controls
                       width="100%"
                       style={{ borderRadius: "12px", marginTop: "12px" }}

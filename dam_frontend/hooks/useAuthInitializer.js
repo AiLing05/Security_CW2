@@ -1,38 +1,23 @@
-
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { loginSuccess, logout } from "../redux/userSlice";
+import { apiFetch } from "../lib/apiFetch";
+import { setSessionUser } from "../lib/browserSession";
 
 export default function useAuthInitializer() {
   const dispatch = useDispatch();
   const [isReady, setIsReady] = useState(false);
-
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const token = localStorage.getItem("access_token");
-      const role = localStorage.getItem("role");
-      const user = localStorage.getItem("user");
-
-      if (token && role && user) {
-        dispatch(
-          loginSuccess({
-            access: token,
-            role,
-            user: JSON.parse(user),
-          })
-        );
-      } else {
-        dispatch(logout());
-      }
-    } catch (err) {
-      console.error("Auth init failed:", err);
-      dispatch(logout());
-    }
-
-    setIsReady(true);
+    let active = true;
+    setSessionUser(null);
+    apiFetch("/api/me/").then(async (response) => {
+      if (!response.ok) throw new Error("Not signed in.");
+      const user = await response.json();
+      if (active) { setSessionUser(user); dispatch(loginSuccess(user)); }
+    }).catch(() => {
+      if (active) { setSessionUser(null); dispatch(logout()); }
+    }).finally(() => { if (active) setIsReady(true); });
+    return () => { active = false; };
   }, [dispatch]);
-
   return isReady;
 }

@@ -1,3 +1,5 @@
+import { isAuthenticated } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
 // pages/metadata.js
 import { useEffect, useState } from "react";
 import {
@@ -36,7 +38,7 @@ export default function MetadataSearchPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
     if (!t) return;
     setToken(t);
@@ -48,9 +50,7 @@ export default function MetadataSearchPage() {
 
   async function fetchCategories(t) {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const res = await apiFetch(`/api/categories/`);
       const data = await res.json();
       setCategories(Array.isArray(data.results) ? data.results : data);
     } catch (err) {
@@ -60,9 +60,7 @@ export default function MetadataSearchPage() {
 
   async function fetchTags(t) {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tags/`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const res = await apiFetch(`/api/tags/`);
       const data = await res.json();
       setTags(Array.isArray(data.results) ? data.results : data);
     } catch (err) {
@@ -81,9 +79,9 @@ export default function MetadataSearchPage() {
       if (dateTo) queryParams.append("date_to", dateTo);
       queryParams.append("page", currentPage);
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/assets/?${queryParams.toString()}`,
-        { headers: { Authorization: `Bearer ${t}` } }
+      const res = await apiFetch(
+        `/api/assets/?${queryParams.toString()}`,
+        { }
       );
       const data = await res.json();
 

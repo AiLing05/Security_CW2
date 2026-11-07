@@ -1,9 +1,6 @@
+import { apiFetch } from "../lib/apiFetch";
 export async function fetchProtectedFile(url, token) {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await apiFetch(url);
 
   if (!response.ok) {
     throw new Error(

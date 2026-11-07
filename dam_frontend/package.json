@@ -11,7 +11,8 @@
     "start": "next start -H 127.0.0.1",
     "predev": "node scripts/copy-model-viewer.cjs",
     "prebuild": "node scripts/copy-model-viewer.cjs",
-    "prestart": "node scripts/copy-model-viewer.cjs"
+    "prestart": "node scripts/copy-model-viewer.cjs",
+    "test:auth": "node --test tests/authProxy.test.cjs tests/browserSession.test.cjs"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.0",

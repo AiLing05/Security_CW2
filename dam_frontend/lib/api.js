@@ -1,44 +1,19 @@
+import { apiFetch } from "./apiFetch";
 
-import { getAccessToken, refreshAccessToken } from "./tokenManager";
-
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL;
+export const API_BASE = "/api";
 
 export async function postToken(username, password) {
-  const res = await fetch(`${API_BASE}/token/`, {
+  const response = await apiFetch(`${API_BASE}/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
-
-  if (!res.ok) throw new Error("Login failed");
-  return res.json();
+  if (!response.ok) throw new Error("Login failed");
+  return response.json();
 }
 
-export async function fetchWithToken(endpoint, token, opts = {}) {
-  const makeRequest = (accessToken) => {
-    const headers = {
-      ...(opts.headers || {}),
-      Authorization: `Bearer ${accessToken}`,
-    };
-
-    return fetch(`${API_BASE}${endpoint}`, {
-      ...opts,
-      headers,
-    });
-  };
-
-  // Prefer the latest token in storage, which may have been rotated.
-  const access = getAccessToken() || token;
-  let res = await makeRequest(access);
-
-  // Retry only when authentication fails.
-  if (res.status === 401) {
-    const refreshedAccess = await refreshAccessToken();
-    res = await makeRequest(refreshedAccess);
-  }
-
-  if (!res.ok) throw res;
-
-  return res.json();
+export async function fetchWithToken(endpoint, _session, options = {}) {
+  const response = await apiFetch(`${API_BASE}${endpoint}`, options);
+  if (!response.ok) throw response;
+  return response.json();
 }

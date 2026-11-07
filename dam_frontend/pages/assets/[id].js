@@ -1,4 +1,7 @@
 "use client";
+import { isAuthenticated } from "../../lib/browserSession";
+import { apiFetch } from "../../lib/apiFetch";
+
 
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
@@ -27,7 +30,7 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
   try {
     let objectUrl = srcUrl;
     try {
-      const res = await fetch(srcUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const res = await apiFetch(srcUrl);
       if (!res.ok) throw new Error("fetch failed");
       const blob = await res.blob();
       objectUrl = URL.createObjectURL(blob);
@@ -79,7 +82,7 @@ export default function AssetDetails() {
 
   const fileInputRef = useRef(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || "";
+  const API = "/api" || "";
 
   // Load the current asset file through the protected API.
   useEffect(() => {
@@ -147,7 +150,7 @@ export default function AssetDetails() {
 
   /* ---------- bootstrap ---------- */
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
     if (!t || !id) return;
     setToken(t); setRole(r);
@@ -162,9 +165,7 @@ export default function AssetDetails() {
 
   async function fetchCategories(t) {
     try {
-      const r = await fetch(`${API}/categories/`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const r = await apiFetch(`${API}/categories/`);
       const j = await r.json();
       const list = Array.isArray(j?.results) ? j.results : Array.isArray(j) ? j : [];
       setCategories(list);
@@ -172,9 +173,7 @@ export default function AssetDetails() {
   }
 
   async function fetchAsset(t, assetId) {
-    const r = await fetch(`${API}/assets/${assetId}/`, {
-      headers: { Authorization: `Bearer ${t}` },
-    });
+    const r = await apiFetch(`${API}/assets/${assetId}/`);
     if (!r.ok) throw new Error("asset fetch failed");
     const data = await r.json();
     setAsset(data);
@@ -190,9 +189,7 @@ export default function AssetDetails() {
 
   async function fetchVersions(t, assetId) {
     try {
-      const r = await fetch(`${API}/versions/?asset_id=${assetId}`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const r = await apiFetch(`${API}/versions/?asset_id=${assetId}`);
       const j = await r.json();
       setVersions(Array.isArray(j?.results) ? j.results : Array.isArray(j) ? j : []);
     } catch (e) { console.error(e); }
@@ -230,17 +227,17 @@ async function handleUpdate() {
         toast({ title: "Editors must attach a new file for update request.", status: "warning" });
         return;
       }
-      const r = await fetch(`${API}/assets/${id}/request_update/`, {
+      const r = await apiFetch(`${API}/assets/${id}/request_update/`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+
         body: fd,
       });
       if (!r.ok) throw new Error(await r.text());
       toast({ title: "Submitted for admin approval.", status: "success" });
     } else {
-      const r = await fetch(`${API}/assets/${id}/`, {
+      const r = await apiFetch(`${API}/assets/${id}/`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
+
         body: fd,
       });
       if (!r.ok) throw new Error(await r.text());
@@ -254,9 +251,7 @@ async function handleUpdate() {
     setCacheBust(Date.now());
 
     // ✅ re-fetch the latest asset metadata
-    const freshRes = await fetch(`${API}/assets/${id}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const freshRes = await apiFetch(`${API}/assets/${id}/`);
     const freshAsset = await freshRes.json();
     setAsset(freshAsset);  // <--- this ensures frontend uses the latest file
 
@@ -316,9 +311,9 @@ async function handleUpdate() {
   async function handleDelete() {
     if (!confirm("Delete this asset?")) return;
     try {
-      const r = await fetch(`${API}/assets/${id}/`, {
+      const r = await apiFetch(`${API}/assets/${id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+
       });
       if (!r.ok) throw new Error(await r.text());
       toast({ title: "Asset deleted", status: "info" });
@@ -330,9 +325,9 @@ async function handleUpdate() {
 
   async function approveVersion(versionId, approve = true) {
     try {
-      const r = await fetch(`${API}/versions/${versionId}/`, {
+      const r = await apiFetch(`${API}/versions/${versionId}/`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: approve ? "approved" : "rejected" }),
       });
       if (!r.ok) throw new Error(await r.text());
