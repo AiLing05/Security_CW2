@@ -62,7 +62,7 @@ class MassDeletionDetectionTests(AuditTestCase):
         ids = []
         for i in range(5):
             response = self.client.post(
-                "/api/assets/", {"title": f"a{i}", "file": self.png(f"a{i}.png")}, format="multipart"
+                "/api/assets/", {"title": f"a{i}", "file": self.png(f"a{i}.png"), "category_id": self.category.pk}, format="multipart"
             )
             ids.append(response.data["id"])
         for pk in ids:

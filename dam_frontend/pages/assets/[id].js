@@ -1,5 +1,5 @@
 "use client";
-import { isAuthenticated } from "../../lib/browserSession";
+import { isAuthenticated, getSessionUser } from "../../lib/browserSession";
 import { apiFetch } from "../../lib/apiFetch";
 
 
@@ -65,6 +65,7 @@ export default function AssetDetails() {
 
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [updated, setUpdated] = useState({
@@ -153,7 +154,9 @@ export default function AssetDetails() {
   /* ---------- bootstrap ---------- */
   useEffect(() => {
     const t = isAuthenticated();
-    const r = localStorage.getItem("role");
+    const sessionUser = getSessionUser();
+    const r = sessionUser?.role;
+    setCurrentUserId(sessionUser?.id ?? null);
     if (!t || !id) return;
     setToken(t); setRole(r);
     Promise.all([fetchAsset(t, id), fetchCategories(t), fetchVersions(t, id)])
@@ -225,10 +228,6 @@ async function handleUpdate() {
     if (updated.file) fd.append("file", updated.file);
 
     if (role === "editor") {
-      if (!updated.file) {
-        toast({ title: "Editors must attach a new file for update request.", status: "warning" });
-        return;
-      }
       const r = await apiFetch(`${API}/assets/${id}/request_update/`, {
         method: "POST",
 
@@ -528,7 +527,7 @@ async function handleUpdate() {
 
                   {/* Simple choose-file input (no drag & drop) */}
                   <Box>
-                    <Text fontWeight="semibold" mb={2}>Upload New File (optional)</Text>
+                    <Text fontWeight="semibold" mb={2}>Upload New File (optional)</Text><Text fontSize="sm" color="gray.600" mb={2}>Leave empty to keep the current file when editing metadata.</Text>
                     <HStack>
                       <Input
                         ref={fileInputRef}
@@ -604,7 +603,7 @@ async function handleUpdate() {
                   <Text><b>Tags:</b> {asset.tags?.map(t => t.name).join(", ") || "—"}</Text>
                   <Text><b>Uploaded:</b> {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleString() : "—"}</Text>
 
-                  {(role === "admin" || role === "editor") && (
+                  {(role === "admin" || (role === "editor" && asset.uploaded_by?.id === currentUserId)) && (
                     <Button mt={4} colorScheme="teal" onClick={() => setIsEditing(true)}>Edit Metadata</Button>
                   )}
                   {role === "admin" && (
