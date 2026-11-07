@@ -6,6 +6,7 @@ if ((url.protocol !== "https:" && !localHTTP) || url.username || url.password ||
 }
 
 module.exports = {
+  outputFileTracingRoot: __dirname,
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: [

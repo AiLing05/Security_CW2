@@ -35,13 +35,15 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
       const blob = await res.blob();
       objectUrl = URL.createObjectURL(blob);
     } catch {}
-    const w = window.open("", "_blank", "noopener,noreferrer");
+    const w = window.open("", "_blank");
     if (!w) return;
+    w.opener = null;
     const safeTitle = String(title).replace(/</g, "&lt;");
     w.document.open();
     w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"/><title>${safeTitle}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
 <script type="module" src="/vendor/model-viewer.min.js"></script>
 <style>html,body{height:100%;margin:0;background:#0b1020}model-viewer{width:100vw;height:100vh}</style>
 </head><body>
