@@ -32,10 +32,12 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
 
     const w = window.open("", "_blank");
     if (!w) return;
+    w.opener = null;
     const safeTitle = (title || "3D Preview").replace(/</g, "&lt;");
     w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
 <script type="module" src="/vendor/model-viewer.min.js"></script>
 <style>html,body{margin:0;height:100%;}model-viewer{width:100vw;height:100vh;}</style>
 </head><body>
