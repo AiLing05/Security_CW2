@@ -80,7 +80,7 @@ function createHandler({ upstream = process.env.DAM_INTERNAL_API_URL || "http://
       if (path === "token" || path === "token/refresh") {
         const data = await response.json();
         if (response.ok) { save(res, data); return json(200, { authenticated: true }); }
-        if (path === "token/refresh") clear(res);
+        if (path === "token/refresh" && response.status === 401) clear(res);
         return json(response.status, { detail: typeof data.detail === "string" ? data.detail : "Authentication failed." });
       }
       if (path === "logout") {

@@ -217,39 +217,21 @@ export default function AssetsPage() {
 
   async function fetchCategories(t) {
     try {
-      const res = await apiFetch(
-        `/api/categories/`,
-        {
-
-        },
-      );
-      const data = await res.json();
+      const data = await fetchWithToken("/categories/", t);
       const catList = Array.isArray(data.results) ? data.results : data;
-
       for (const name of staticCategories.filter((c) => c !== "Others")) {
         if (!catList.some((c) => c.name === name)) {
-          await apiFetch(`/api/categories/`, {
+          await fetchWithToken("/categories/", t, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name }),
           });
         }
       }
-
-      const updated = await apiFetch(
-        `/api/categories/`,
-        {
-
-        },
-      );
-      const finalCats = await updated.json();
-      setCategories(
-        Array.isArray(finalCats.results) ? finalCats.results : finalCats,
-      );
-    } catch (err) {
-      console.error("Error fetching categories:", err);
+      const finalCats = await fetchWithToken("/categories/", t);
+      setCategories(Array.isArray(finalCats.results) ? finalCats.results : finalCats);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
     }
   }
 
