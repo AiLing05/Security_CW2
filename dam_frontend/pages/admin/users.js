@@ -1,3 +1,5 @@
+import { isAuthenticated } from "../../lib/browserSession";
+import { apiFetch } from "../../lib/apiFetch";
 import { useState, useEffect } from "react";
 import {
   Box,
@@ -37,7 +39,7 @@ export default function UserManagement() {
 
   // ✅ Fetch auth details & users
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
     if (!t) {
       router.push("/login");
@@ -52,9 +54,7 @@ export default function UserManagement() {
   // ✅ Fetch users
   async function fetchUsers(t) {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
+      const res = await apiFetch(`/api/users/`);
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(Array.isArray(data.results) ? data.results : data); // ✅ prevent .map crash
@@ -75,15 +75,14 @@ export default function UserManagement() {
     }
 
     const url = editingUser
-      ? `${process.env.NEXT_PUBLIC_API_URL}/users/${editingUser.id}/`
-      : `${process.env.NEXT_PUBLIC_API_URL}/users/`;
+      ? `/api/users/${editingUser.id}/`
+      : `/api/users/`;
     const method = editingUser ? "PUT" : "POST";
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(form),
@@ -114,9 +113,9 @@ export default function UserManagement() {
   async function handleDeleteUser(id) {
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${id}/`, {
+      const res = await apiFetch(`/api/users/${id}/`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+
       });
       if (res.ok) {
         toast({ title: "User deleted", status: "info" });

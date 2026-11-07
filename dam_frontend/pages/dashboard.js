@@ -1,3 +1,5 @@
+import { isAuthenticated } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -22,7 +24,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = isAuthenticated();
     const userRole = localStorage.getItem("role");
     setRole(userRole);
 
@@ -32,9 +34,7 @@ export default function Dashboard() {
     }
 
     // Fetch counts
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/assets/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch(`/api/assets/`)
       .then((r) => r.json())
       .then((data) => {
         const assetCount = data.count || (Array.isArray(data) ? data.length : 0);
@@ -49,9 +49,7 @@ export default function Dashboard() {
       })
       .catch(console.error);
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch(`/api/categories/`)
       .then((r) => r.json())
       .then((d) =>
         setCounts((prev) => ({
@@ -61,9 +59,7 @@ export default function Dashboard() {
       )
       .catch(() => {});
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/tags/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch(`/api/tags/`)
       .then((r) => r.json())
       .then((d) =>
         setCounts((prev) => ({

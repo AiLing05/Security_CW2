@@ -1,14 +1,14 @@
+import { isAuthenticated } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 
 export const fetchAssets = createAsyncThunk("assets/fetchAssets", async (_, thunkAPI) => {
   try {
-    const token = localStorage.getItem("access_token");
+    const token = isAuthenticated();
 
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/assets/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await apiFetch(`/api/assets/`);
 
     if (!res.ok) {
       const errorText = await res.text();
