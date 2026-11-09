@@ -58,7 +58,7 @@ class AccessControlEventTests(AuditTestCase):
 class AssetEventTests(AuditTestCase):
     def upload(self):
         response = self.client.post(
-            "/api/assets/", {"title": "Brand logo", "file": self.png()}, format="multipart"
+            "/api/assets/", {"title": "Brand logo", "file": self.png(), "category_id": self.category.pk}, format="multipart"
         )
         self.assertEqual(response.status_code, 201, response.content)
         return Asset.objects.get(pk=response.data["id"])
@@ -69,7 +69,7 @@ class AssetEventTests(AuditTestCase):
         event = self.events("ASSET_UPLOADED").get()
         self.assertEqual(event.actor_username, "admin1")
         self.assertEqual(event.target_id, str(asset.pk))
-        self.assertIn("logo", event.details["file"])
+        self.assertEqual(event.details["file"], asset.file.name)
 
     def test_view_and_delete_recorded(self):
         self.auth_as(self.admin)
@@ -82,9 +82,8 @@ class AssetEventTests(AuditTestCase):
         self.assertEqual(deleted.actor_username, "admin1")
 
     def test_version_submit_and_approval_recorded(self):
-        self.auth_as(self.admin)
-        asset = self.upload()
         self.auth_as(self.editor)
+        asset = self.upload()
         response = self.client.post(
             f"/api/assets/{asset.pk}/request_update/",
             {"title": "Brand logo v2", "file": self.png("logo2.png")}, format="multipart",
@@ -102,9 +101,8 @@ class AssetEventTests(AuditTestCase):
     def test_version_content_replacement_recorded(self):
         # Found by manual test M04: a viewer could PUT over another user's
         # pending version. Whatever the permission outcome, the change must be logged.
-        self.auth_as(self.admin)
-        asset = self.upload()
         self.auth_as(self.editor)
+        asset = self.upload()
         version_id = self.client.post(
             f"/api/assets/{asset.pk}/request_update/", {"title": "v2", "file": self.png("v2.png")},
             format="multipart",
