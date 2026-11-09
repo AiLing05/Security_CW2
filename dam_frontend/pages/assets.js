@@ -221,7 +221,7 @@ export default function AssetsPage() {
     try {
       const data = await fetchWithToken("/categories/", t);
       const catList = Array.isArray(data.results) ? data.results : data;
-      for (const name of staticCategories.filter((c) => c !== "Others")) {
+      for (const name of staticCategories.filter((c) => c !== "Others" && localStorage.getItem('role') === 'admin')) {
         if (!catList.some((c) => c.name === name)) {
           await fetchWithToken("/categories/", t, {
             method: "POST",
@@ -450,7 +450,7 @@ export default function AssetsPage() {
                   onChange={(e) => setCategoryId(e.target.value)}
                   placeholder="Select category"
                 >
-                  {staticCategories.map((cat) => (
+                  {[...categories.map(c => c.name), ...(role === 'admin' ? ['Others'] : [])].map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>

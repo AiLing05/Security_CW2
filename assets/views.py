@@ -93,90 +93,38 @@ class MyTokenObtainPairView(TokenObtainPairView):
     throttle_classes = [LoginRateThrottle]
 
 
-# ---------------------------------------------------------------------
-# PERMISSIONS
-# ---------------------------------------------------------------------
-class IsAdminEditorOrReadOnly(permissions.BasePermission):
-    """
-    Permissions:
-    - Safe methods (GET, HEAD, OPTIONS): everyone
-    - Create (POST): Admins + Editors
-    - Modify (PUT, PATCH): Admins + Editors
-        (Editors’ changes are saved as pending for admin approval)
-    - Delete: Admins only
-    - View-only: Viewers
-    """
-
-    def has_permission(self, request, view):
-        # Safe methods (GET, HEAD, OPTIONS) — allow all
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        # Must be authenticated for unsafe methods
-        user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
-            return False
-
-        role = getattr(user, "role", "").lower()
-
-        # ✅ Allow Create (POST) for Admins + Editors
-        if request.method == "POST":
-            return role in ("admin", "editor")
-
-        # ✅ Allow Modify (PUT, PATCH) for Admins + Editors
-        if request.method in ("PUT", "PATCH"):
-            return role in ("admin", "editor")
-
-        # ✅ Allow Delete for Admins only
-        if request.method == "DELETE":
-            return role == "admin"
-
-        # Deny anything else
-        return False
-
-    def has_object_permission(self, request, view, obj):
-        # Safe methods are always allowed
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
-            return False
-
-        role = getattr(user, "role", "").lower()
-
-        # ✅ Admin has full control
-        if role == "admin":
-            return True
-
-        # ✅ Editor can modify but not delete (approval logic handled in view)
-        if role == "editor" and request.method in ("PUT", "PATCH", "POST"):
-            return True
-
-        # ❌ Editors cannot delete, viewers cannot modify
-        return False
+# Permissions are shared with file routes and serializer visibility filtering.
+from .permissions import (
+    AssetPermission, IsDAMAdmin, IsDAMMember, IsAdminOrReadOnly,
+    check_tag_assignment, visible_assets, visible_versions,
+)
+from django.db import transaction
+from django.db.models import Max
+from rest_framework.exceptions import PermissionDenied
 
 
-# ---------------------------------------------------------------------
-# USER MANAGEMENT (Admin only)
-# ---------------------------------------------------------------------
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  # keep using Django admin check here
+    permission_classes = [IsDAMAdmin]
 
+    def perform_update(self, serializer):
+        target = serializer.instance
+        if target.is_superuser and not self.request.user.is_superuser:
+            raise PermissionDenied('Only a superuser can change a superuser account.')
+        if target.pk == self.request.user.pk and (
+            serializer.validated_data.get('role', target.role) != 'admin'
+            or not serializer.validated_data.get('is_active', target.is_active)
+        ):
+            raise PermissionDenied('You cannot remove your own administrator access.')
+        serializer.save()
 
-# ---------------------------------------------------------------------
-# CUSTOM PERMISSIONS FOR CATEGORY
-# ---------------------------------------------------------------------
-class IsAdminOrReadOnly(permissions.BasePermission):
-    """Allow only admins to create/update/delete; everyone can read."""
-
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        user = request.user
-        return user.is_authenticated and getattr(user, "role", "").lower() == "admin"
+    def perform_destroy(self, instance):
+        if instance.pk == self.request.user.pk:
+            raise PermissionDenied('You cannot delete your own administrator account.')
+        if instance.is_superuser and not self.request.user.is_superuser:
+            raise PermissionDenied('Only a superuser can delete a superuser account.')
+        instance.delete()
 
 
 # ---------------------------------------------------------------------
@@ -192,7 +140,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
 
 
 # ---------------------------------------------------------------------
@@ -215,7 +163,7 @@ class AssetFilter(django_filters.FilterSet):
 class AssetViewSet(viewsets.ModelViewSet):
     queryset = Asset.objects.prefetch_related("tags", "versions", "category").all()
     serializer_class = AssetSerializer
-    permission_classes = [IsAdminEditorOrReadOnly]
+    permission_classes = [AssetPermission]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
     filter_backends = [
         django_filters.DjangoFilterBackend,
@@ -226,6 +174,19 @@ class AssetViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "description", "metadata"]
     ordering_fields = ["uploaded_at", "title"]
 
+    def get_queryset(self):
+        return visible_assets(super().get_queryset(), self.request.user)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        if request.user.role == 'editor':
+            # Every editor write uses the approval workflow, including direct PUT/PATCH.
+            return self.request_update(request, pk=kwargs.get('pk'))
+        asset = self.get_object()
+        Asset.objects.select_for_update().get(pk=asset.pk)
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
     def perform_create(self, serializer):
         """
         Handle both initial uploads and creation of new asset versions.
@@ -242,33 +203,12 @@ class AssetViewSet(viewsets.ModelViewSet):
                 raw_tags = request.data.get("tags")
 
         tag_names = validate_tags_input(raw_tags)
+        check_tag_assignment(request.user, tag_names)
 
-        parent_id = request.data.get("parent")
-        parent_asset = Asset.objects.filter(pk=parent_id).first() if parent_id else None
+        if request.data.get('parent'):
+            raise ValidationError({'parent': 'Use the asset request_update endpoint for new versions.'})
 
-        # If it's a new version for an existing asset (parent provided)
-        if parent_asset:
-            uploaded_file = request.FILES.get("file")
-
-            if not uploaded_file:
-                raise ValidationError({"file": "Please select a file."})
-
-            validate_uploaded_file(uploaded_file)
-
-            last_version = parent_asset.version or 1
-            new_version_num = last_version + 1
-
-            av = AssetVersion.objects.create(
-                asset=parent_asset,
-                file=uploaded_file,
-                uploaded_by=request.user,
-                version=new_version_num,
-                status="pending",
-            )
-            return av
-
-        # Otherwise, it's a new asset (admins only — enforced by permission)
-        asset = serializer.save(uploaded_by=request.user)
+        asset = serializer.save(uploaded_by=request.user, created_by=request.user)
 
         for tname in tag_names:
             tag_obj, _ = Tag.objects.get_or_create(name=tname)
@@ -293,13 +233,16 @@ class AssetViewSet(viewsets.ModelViewSet):
 
     # -------------------- Editor submits new version --------------------
     @action(
-        detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+        detail=True, methods=["post"], permission_classes=[AssetPermission]
     )
+    @transaction.atomic
     def request_update(self, request, pk=None):
         """
         Admin and Editor can submit a new version of an asset.
         """
         asset = self.get_object()
+        # Serialize version numbering against all other submissions for this asset.
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)
         user = request.user
         if not user or not getattr(user, "role", None):
             return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
@@ -308,6 +251,8 @@ class AssetViewSet(viewsets.ModelViewSet):
         if role not in ("admin", "editor"):
             return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
 
+        if 'parent' in request.data or 'metadata' in request.data:
+            raise ValidationError({'detail': 'Parent and JSON metadata cannot be changed through version requests.'})
         file = request.FILES.get("file")
 
         if file is not None:
@@ -323,7 +268,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             request.data.get("description", asset.description), "description", 2000
         )
 
-        category_id = request.data.get("category")
+        category_id = request.data.get("category_id", request.data.get("category"))
         category = asset.category
 
         if category_id not in (None, ""):
@@ -337,9 +282,11 @@ class AssetViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"category": "Please select a valid category."})
 
         tags_input = request.data.get("tags")
-        tag_names = validate_tags_input(tags_input)
+        tag_names = validate_tags_input(tags_input) if tags_input is not None else None
+        if tag_names is not None:
+            check_tag_assignment(request.user, tag_names)
 
-        last_version = asset.version or 1
+        last_version = asset.versions.aggregate(number=Max('version'))['number'] or asset.version
         new_version = last_version + 1
 
         # -------------------- Create version with metadata --------------------
@@ -356,9 +303,12 @@ class AssetViewSet(viewsets.ModelViewSet):
         )
 
         # Set validated tags if provided
-        for tname in tag_names:
-            tag_obj, _ = Tag.objects.get_or_create(name=tname)
-            version.tags.add(tag_obj)
+        if tag_names is None:
+            version.tags.set(asset.tags.all())
+        else:
+            for tname in tag_names:
+                tag_obj, _ = Tag.objects.get_or_create(name=tname)
+                version.tags.add(tag_obj)
 
         serializer = AssetVersionSerializer(version, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -368,8 +318,10 @@ class AssetViewSet(viewsets.ModelViewSet):
 # ASSET VERSIONS (Admin can approve/reject)
 # ---------------------------------------------------------------------
 class AssetVersionViewSet(viewsets.ModelViewSet):
+    # Creation is through request_update; versions cannot be overwritten with PUT.
+    http_method_names = ['get', 'head', 'options', 'patch', 'delete']
     serializer_class = AssetVersionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = (
@@ -377,13 +329,17 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
             .prefetch_related("tags")
             .all()
         )
+        queryset = visible_versions(queryset, self.request.user)
         asset_id = self.request.query_params.get("asset_id")
         if asset_id:
             queryset = queryset.filter(asset_id=asset_id)
         return queryset.order_by("-version", "-uploaded_at")
 
+    @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
+        asset = Asset.objects.select_for_update().get(pk=instance.asset_id)
+        instance.refresh_from_db()
         user = request.user
 
         # Only admins can approve/reject
@@ -396,31 +352,31 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
                 {"detail": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        if set(request.data) != {'status'}:
+            raise ValidationError({'detail': 'Only status may be changed on a submitted version.'})
+        if instance.status != 'pending':
+            raise ValidationError({'status': 'Only pending versions can be reviewed.'})
+        if status_value == 'approved' and instance.version <= asset.version:
+            raise ValidationError({'status': 'A newer version is already current.'})
         instance.status = status_value
         instance.save()
 
         # -------------------- APPROVAL LOGIC --------------------
         if status_value == "approved":
-            asset = instance.asset
 
             # Update metadata fields
             asset.title = instance.title or asset.title
-            asset.description = instance.description or asset.description
+            asset.description = instance.description if instance.description is not None else asset.description
             asset.category = instance.category or asset.category
 
-            if instance.tags.exists():
-                asset.tags.set(instance.tags.all())
+            asset.tags.set(instance.tags.all())
 
             # Do not overwrite file directly with same FileField instance
             if instance.file and instance.file.name != (
                 asset.file.name if asset.file else ""
             ):
-                # Keep old file intact — only point to the new version’s copy
-                asset.file.save(
-                    instance.file.name.split("/")[-1],  # filename only
-                    instance.file.file,  # file object
-                    save=False,  # prevent immediate save to avoid double delete
-                )
+                # Publish the immutable stored version without copying or opening it.
+                asset.file = instance.file.name
 
             asset.version = instance.version
             asset.save()
@@ -430,9 +386,9 @@ class AssetVersionViewSet(viewsets.ModelViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsDAMMember])
 def protected_asset_file(request, asset_id):
-    asset = get_object_or_404(Asset, pk=asset_id)
+    asset = get_object_or_404(visible_assets(Asset.objects.all(), request.user), pk=asset_id)
 
     # Use the latest approved file when available.
     latest = asset.latest_version()
@@ -455,21 +411,9 @@ def protected_asset_file(request, asset_id):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsDAMMember])
 def protected_version_file(request, version_id):
-    version = get_object_or_404(AssetVersion, pk=version_id)
-
-    # Pending or rejected versions are restricted.
-    if version.status != "approved":
-        is_admin = getattr(request.user, "role", "") == "admin"
-
-        is_uploader = version.uploaded_by_id == request.user.id
-
-        if not (is_admin or is_uploader):
-            return Response(
-                {"detail": "Access denied."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+    version = get_object_or_404(visible_versions(AssetVersion.objects.all(), request.user), pk=version_id)
 
     if not version.file:
         raise Http404("File not found.")

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import User, Asset, Category, Tag, AssetVersion
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.hashers import make_password
+from .permissions import visible_versions
 from .file_validators import validate_uploaded_file
 import json
 from .input_validators import (
@@ -48,6 +49,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "password",
             "role",
+            "is_active",
         ]
 
 
@@ -57,6 +59,10 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "password": "Password is required."
             })
+
+        forbidden = {'is_staff', 'is_superuser', 'groups', 'user_permissions'} & set(self.initial_data)
+        if forbidden:
+            raise serializers.ValidationError({field: 'System privileges cannot be changed through this API.' for field in forbidden})
 
         # Check similarity against user attributes
         if "password" in attrs:
@@ -136,8 +142,14 @@ class CategorySerializer(serializers.ModelSerializer):
 # --------------------------
 # AssetVersion Serializer
 # --------------------------
+class UploaderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']
+
+
 class AssetVersionSerializer(serializers.ModelSerializer):
-    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by = UploaderSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False)
@@ -191,10 +203,15 @@ class AssetVersionSerializer(serializers.ModelSerializer):
 # Asset Serializer
 # --------------------------
 class AssetSerializer(serializers.ModelSerializer):
-    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by = UploaderSerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False)
     tags = TagSerializer(many=True, read_only=True)
-    versions = AssetVersionSerializer(many=True, read_only=True)
+    versions = serializers.SerializerMethodField()
+
+    def get_versions(self, obj):
+        request = self.context.get('request')
+        versions = visible_versions(obj.versions.all(), getattr(request, 'user', None))
+        return AssetVersionSerializer(versions, many=True, context=self.context).data
 
     class Meta:
         model = Asset
@@ -212,7 +229,8 @@ class AssetSerializer(serializers.ModelSerializer):
             "parent",
             "versions",
         ]
-        read_only_fields = ("uploaded_by", "version", "uploaded_at", "versions")
+        read_only_fields = ("uploaded_by", "version", "uploaded_at", "versions", "parent")
+        extra_kwargs = {'file': {'required': False}}
 
     def validate_file(self, value):
         return validate_uploaded_file(value)
@@ -252,6 +270,11 @@ class AssetSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+
+        if 'parent' in self.initial_data:
+            raise serializers.ValidationError({'parent': 'Use request_update for asset versions.'})
+        if self.instance is None and not attrs.get('file'):
+            raise serializers.ValidationError({'file': 'Please select a file for a new asset.'})
 
         # Require category when creating a new asset.
         if self.instance is None and not self.initial_data.get("parent"):
@@ -346,10 +369,8 @@ class AssetSerializer(serializers.ModelSerializer):
         # Create a new asset version if needed.
         if new_file or (user and user.role == "admin"):
             latest_version = instance.latest_version()
-            version_number = (
-                latest_version.version + 1
-                if latest_version else 1
-            )
+            from django.db.models import Max
+            version_number = (instance.versions.aggregate(number=Max('version'))['number'] or 0) + 1
 
             asset_version = AssetVersion.objects.create(
                 asset=instance,
@@ -365,6 +386,10 @@ class AssetSerializer(serializers.ModelSerializer):
                 ),
                 category=instance.category,
             )
+
+            instance.version = version_number
+            if new_file:
+                instance.file = asset_version.file.name
 
             # Copy validated tags into the new version.
             for tag in instance.tags.all():
