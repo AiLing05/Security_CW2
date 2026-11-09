@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection, transaction
 from django.utils import timezone
 
 from audit.models import SecurityEvent
@@ -95,7 +96,14 @@ class RetentionTests(AuditTestCase):
         return event
 
     def test_purge_removes_only_expired_records_and_logs_itself(self):
-        SecurityEvent.objects.all()._retention_purge()  # start from an empty trail
+        with transaction.atomic():
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL audit.allow_purge = 'on'")
+            SecurityEvent.objects.all()._retention_purge()
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL audit.allow_purge = 'off'")
         self._old_event(400)
         self._old_event(10)
         call_command("purge_audit_logs", "--days", "365")

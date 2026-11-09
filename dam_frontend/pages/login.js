@@ -17,33 +17,10 @@ import {
 } from "@chakra-ui/react";
 import { useRouter } from "next/router";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-
-/** ✅ Safe JWT decode (no external deps) */
-function safeDecodeJwt(token) {
-  try {
-    const payload = token.split(".")[1];
-    const pad = payload.length % 4;
-    const padded = payload + (pad ? "=".repeat(4 - pad) : "");
-    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decodeURIComponent(escape(json)));
-  } catch {
-    return null;
-  }
-}
-
-/** ✅ Optional: fetch /me endpoint if role or username not inside token */
-async function fetchUserInfo(access) {
-  try {
-    const res = await fetch(`${API_BASE}/me/`, {
-      headers: { Authorization: `Bearer ${access}` },
-    });
-    if (!res.ok) return {};
-    return await res.json();
-  } catch {
-    return {};
-  }
-}
+import { apiFetch } from "../lib/apiFetch";
+import { isAuthenticated, setSessionUser } from "../lib/browserSession";
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../redux/userSlice";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -52,25 +29,17 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const router = useRouter();
   const toast = useToast();
+  const dispatch = useDispatch();
 
   // Redirect if already logged in
   useEffect(() => {
     const token =
-      typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+      isAuthenticated();
     if (token) router.replace("/dashboard");
   }, [router]);
 
   async function onSubmit(e) {
     e.preventDefault();
-
-    if (!API_BASE) {
-      toast({
-        title: "Configuration error",
-        description: "NEXT_PUBLIC_API_URL is not set.",
-        status: "error",
-      });
-      return;
-    }
 
     if (!username || !password) {
       toast({ title: "Please enter username and password.", status: "warning" });
@@ -79,7 +48,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/token/`, {
+      const res = await apiFetch("/api/token/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -90,38 +59,11 @@ export default function Login() {
         throw new Error(err?.detail || "Invalid credentials");
       }
 
-      const data = await res.json();
-      const access = data.access;
-      const refresh = data.refresh;
-      if (!access) throw new Error("Token missing in response");
-
-      // ✅ Store tokens
-      localStorage.setItem("access_token", access);
-      if (refresh) localStorage.setItem("refresh_token", refresh);
-
-      // ✅ Decode JWT for username + role
-      const decoded = safeDecodeJwt(access);
-      let decodedUsername =
-        decoded?.username ||
-        decoded?.user?.username ||
-        data?.username ||
-        username;
-      let role =
-        decoded?.role ||
-        decoded?.user?.role ||
-        data?.role ||
-        "";
-
-      // ✅ Fallback to /me endpoint if missing
-      if (!decodedUsername || !role) {
-        const me = await fetchUserInfo(access);
-        decodedUsername = decodedUsername || me.username || me.user?.username || username;
-        role = role || me.role || me.user?.role || "";
-      }
-
-      // ✅ Save username + role for NavBar
-      localStorage.setItem("username", decodedUsername);
-      localStorage.setItem("role", role.toLowerCase());
+      const profile = await apiFetch("/api/me/");
+      if (!profile.ok) throw new Error("Could not load your account.");
+      const user = await profile.json();
+      setSessionUser(user);
+      dispatch(loginSuccess(user));
 
       toast({
         title: "Signed in successfully.",

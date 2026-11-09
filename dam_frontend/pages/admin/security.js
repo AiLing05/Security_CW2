@@ -1,3 +1,4 @@
+import { isAuthenticated } from "../../lib/browserSession";
 import { useEffect, useState, useCallback } from "react";
 import {
   Badge,
@@ -94,7 +95,7 @@ export default function SecurityDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = isAuthenticated();
     const r = localStorage.getItem("role");
     if (!t) {
       router.push("/login");

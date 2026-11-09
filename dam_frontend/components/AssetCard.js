@@ -1,4 +1,7 @@
 "use client";
+import { isAuthenticated } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
+
 
 import { Box, Text, Button, Heading, Divider, HStack, Image } from "@chakra-ui/react";
 import { useRouter } from "next/router";
@@ -21,7 +24,7 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
   try {
     let objectUrl = srcUrl;
     try {
-      const res = await fetch(srcUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const res = await apiFetch(srcUrl);
       if (!res.ok) throw new Error("fetch failed");
       const blob = await res.blob();
       objectUrl = URL.createObjectURL(blob);
@@ -29,11 +32,13 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
 
     const w = window.open("", "_blank");
     if (!w) return;
+    w.opener = null;
     const safeTitle = (title || "3D Preview").replace(/</g, "&lt;");
     w.document.write(`<!doctype html>
 <html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<script type="module" src="https://unpkg.com/@google/model-viewer@latest/dist/model-viewer.min.js"></script>
+<meta name="referrer" content="no-referrer">
+<script type="module" src="/vendor/model-viewer.min.js"></script>
 <style>html,body{margin:0;height:100%;}model-viewer{width:100vw;height:100vh;}</style>
 </head><body>
 <model-viewer src="${objectUrl}" camera-controls auto-rotate environment-image="neutral"></model-viewer>
@@ -46,31 +51,28 @@ async function openModelInNewTab({ srcUrl, token, title = "3D Preview" }) {
 
 export default function AssetCard({ asset: initialAsset, assetId }) {
   const router = useRouter();
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "";
   const [asset, setAsset] = useState(initialAsset || null);
   const [loading, setLoading] = useState(!initialAsset);
   const [protectedUrl, setProtectedUrl] = useState(null);
 
   // Fetch latest asset from backend if no full asset is passed
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = isAuthenticated();
     if (asset || !assetId || !token) return;
 
     setLoading(true);
-    fetch(`${base}/api/assets/${assetId}/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch(`/api/assets/${assetId}/`)
       .then((res) => res.json())
       .then((data) => setAsset(data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [asset, assetId, base]);
+  }, [asset, assetId]);
 
   // Load asset preview using JWT authentication.
   useEffect(() => {
     if (!asset?.id) return;
 
-    const token = localStorage.getItem("access_token");
+    const token = isAuthenticated();
     if (!token) return;
 
     let active = true;
@@ -79,7 +81,7 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
     setProtectedUrl(null);
 
     fetchProtectedFile(
-      `${process.env.NEXT_PUBLIC_API_URL}/assets/${asset.id}/file/`,
+      `/api/assets/${asset.id}/file/`,
       token
     )
       .then((url) => {
@@ -178,7 +180,7 @@ export default function AssetCard({ asset: initialAsset, assetId }) {
               return;
             }
 
-            const token = localStorage.getItem("access_token");
+            const token = isAuthenticated();
 
             if (kind === "model") {
               openModelInNewTab({

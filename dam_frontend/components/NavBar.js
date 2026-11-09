@@ -1,13 +1,15 @@
+import { setSessionUser } from "../lib/browserSession";
+import { apiFetch } from "../lib/apiFetch";
+import { useDispatch } from "react-redux";
+import { logout } from "../redux/userSlice";
 // components/NavBar.js
 import {useState, useEffect} from "react";
 import {Box, Flex, Button, Text, Spacer, Spinner} from "@chakra-ui/react";
 import {useRouter} from "next/router";
 
-const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-
 export default function NavBar() {
     const router = useRouter();
+    const dispatch = useDispatch();
 
     // State for username, role, and client readiness
     const [isClient, setIsClient] = useState(false);
@@ -45,36 +47,15 @@ export default function NavBar() {
 
 
     const handleLogout = async () => {
-        const access = localStorage.getItem("access_token");
-        const refresh = localStorage.getItem("refresh_token");
-
-        if (!access || !refresh) {
-            localStorage.clear();
-            router.replace("/login");
-            return;
-        }
-
         try {
-            const response = await fetch(`${API_BASE}/logout/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${access}`,
-                },
-                body: JSON.stringify({refresh}),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Logout failed: HTTP ${response.status}`);
-            }
-
-            localStorage.clear();
+            await apiFetch("/api/me/");
+            const response = await apiFetch("/api/logout/", { method: "POST" });
+            if (!response.ok) throw new Error("Logout failed.");
+            setSessionUser(null);
+            dispatch(logout());
             router.replace("/login");
-        } catch (error) {
-            console.error("Server-side logout failed:", error);
-            alert(
-                "Secure logout could not be completed. Please retry. Your session may still be active."
-            );
+        } catch {
+            alert("Secure logout could not be completed. Please retry.");
         }
     };
 

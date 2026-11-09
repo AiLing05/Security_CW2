@@ -2,19 +2,27 @@
   "name": "dam_frontend",
   "version": "1.0.0",
   "private": true,
+  "overrides": {
+    "postcss": "8.5.23"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -H 127.0.0.1",
+    "predev": "node scripts/copy-model-viewer.cjs",
+    "prebuild": "node scripts/copy-model-viewer.cjs",
+    "prestart": "node scripts/copy-model-viewer.cjs",
+    "test:auth": "node --test tests/authProxy.test.cjs tests/browserSession.test.cjs tests/api.test.mjs tests/cookieRefresh.test.mjs"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/model-viewer": "4.4.0",
     "@reduxjs/toolkit": "^2.3.0",
     "axios": "^1.12.2",
     "framer-motion": "^6.5.1",
-    "next": "^13.5.11",
+    "next": "15.5.29",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",

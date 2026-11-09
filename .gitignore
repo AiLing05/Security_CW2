@@ -27,3 +27,8 @@ media/
 Thumbs.db
 # Application logs
 logs/
+staticfiles/
+.pytest_cache/
+.audit-cache/
+dam_frontend/public/vendor/
+.tools/
