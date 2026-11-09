@@ -1,6 +1,6 @@
 # Baseline observations and provenance
 
-Baseline: GitHub `main` commit `3f90043` (before Ruth's permission fixes). The existing application already contained Admin/Editor/Viewer roles, assets, versions, JWT authentication, an approval UI, audit logging and file validation. Those features are not claimed as Ruth's original implementation.
+Baseline: GitHub `main` commit `3f90043`. The existing application already contained Admin/Editor/Viewer roles, assets, versions, JWT authentication, an approval UI, audit logging and file validation. Those features are not claimed as Ruth's original implementation.
 
 The first isolated run in this work session used Django's runner and three tests subsequently retained in `assets/tests/test_authorization.py`. All three failed because requests that should have been denied succeeded:
 
