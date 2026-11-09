@@ -623,3 +623,28 @@ def test_staff_application_admin_can_manage_users(api_client):
 
     target.refresh_from_db()
     assert target.role == "editor"
+
+
+@pytest.mark.django_db
+def test_login_throttle_cannot_bypass_with_spoofed_xff(api_client, test_user):
+    from django.core.cache import cache
+
+    cache.clear()
+    statuses = []
+
+    for attempt in range(6):
+        response = api_client.post(
+            "/api/token/",
+            {
+                "username": "security_test_user",
+                "password": "IncorrectPassword123!",
+            },
+            format="json",
+            REMOTE_ADDR="127.0.0.1",
+            HTTP_X_FORWARDED_FOR=f"192.0.2.{attempt + 1}",
+        )
+        statuses.append(response.status_code)
+
+    assert statuses == [401, 401, 401, 401, 401, 429], (
+        f"Login throttle bypass detected: {statuses}"
+    )

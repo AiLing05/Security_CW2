@@ -146,6 +146,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "NUM_PROXIES": 0,
 }
 
 # CORS (Frontend -> Backend)
@@ -186,4 +187,3 @@ LOGGING = {
         "dam.security": {"handlers": ["security_file"], "level": "INFO", "propagate": False},
     },
 }
-
