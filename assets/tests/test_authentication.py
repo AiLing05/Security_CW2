@@ -513,3 +513,138 @@ def test_staff_admin_updates_password_securely(api_client):
     assert target.check_password("UpdatedSecurePassword123!")
     assert not target.check_password("OriginalSecurePassword123!")
     assert "password" not in response.data
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_change_another_users_password(api_client, test_user):
+    target = User.objects.create_user(
+        username="protected_password_target",
+        password="OriginalSecurePassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"password": "UnauthorizedPassword123!"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    target.refresh_from_db()
+    assert target.check_password("OriginalSecurePassword123!")
+    assert not target.check_password("UnauthorizedPassword123!")
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_promote_self_to_admin(api_client, test_user):
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.patch(
+        f"/api/users/{test_user.id}/",
+        {"role": "admin", "is_staff": True},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    test_user.refresh_from_db()
+    assert test_user.role == "viewer"
+    assert test_user.is_staff is False
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_delete_another_user(api_client, test_user):
+    target = User.objects.create_user(
+        username="protected_delete_target",
+        password="SecureTargetPassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=test_user)
+
+    response = api_client.delete(f"/api/users/{target.id}/")
+
+    assert response.status_code == 403
+    assert User.objects.filter(pk=target.id).exists()
+
+
+@pytest.mark.django_db
+def test_staff_viewer_cannot_manage_users(api_client):
+    staff_viewer = User.objects.create_user(
+        username="staff_viewer",
+        password="SecureViewerPassword123!",
+        role="viewer",
+        is_staff=True,
+    )
+    target = User.objects.create_user(
+        username="protected_role_target",
+        password="OriginalSecurePassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=staff_viewer)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"role": "admin"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+
+    target.refresh_from_db()
+    assert target.role == "viewer"
+
+
+@pytest.mark.django_db
+def test_staff_application_admin_can_manage_users(api_client):
+    admin = User.objects.create_superuser(
+        username="authorized_role_admin",
+        password="SecureAdminPassword123!",
+    )
+    target = User.objects.create_user(
+        username="authorized_role_target",
+        password="SecureTargetPassword123!",
+        role="viewer",
+    )
+
+    api_client.force_authenticate(user=admin)
+
+    response = api_client.patch(
+        f"/api/users/{target.id}/",
+        {"role": "editor"},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+
+    target.refresh_from_db()
+    assert target.role == "editor"
+
+
+@pytest.mark.django_db
+def test_login_throttle_cannot_bypass_with_spoofed_xff(api_client, test_user):
+    from django.core.cache import cache
+
+    cache.clear()
+    statuses = []
+
+    for attempt in range(6):
+        response = api_client.post(
+            "/api/token/",
+            {
+                "username": "security_test_user",
+                "password": "IncorrectPassword123!",
+            },
+            format="json",
+            REMOTE_ADDR="127.0.0.1",
+            HTTP_X_FORWARDED_FOR=f"192.0.2.{attempt + 1}",
+        )
+        statuses.append(response.status_code)
+
+    assert statuses == [401, 401, 401, 401, 401, 429], (
+        f"Login throttle bypass detected: {statuses}"
+    )

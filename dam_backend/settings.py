@@ -129,7 +129,10 @@ DATABASES = {
         "PASSWORD": required("POSTGRES_PASSWORD"),
         "HOST": os.getenv("POSTGRES_HOST", "127.0.0.1"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
-        "OPTIONS": {"sslmode": os.getenv("POSTGRES_SSLMODE", "verify-full"), "connect_timeout": 5},
+        "OPTIONS": {
+            "sslmode": os.getenv("POSTGRES_SSLMODE", "verify-full"),
+            "connect_timeout": 5,
+        },
     }
 }
 
@@ -186,6 +189,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "NUM_PROXIES": 0,
 }
 
 # CORS (Frontend -> Backend)
@@ -230,4 +234,3 @@ LOGGING = {
         "dam.security": {"handlers": ["security_file"], "level": "INFO", "propagate": False},
     },
 }
-

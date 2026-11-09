@@ -29,6 +29,7 @@ from pathlib import Path
 import mimetypes
 
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me_view(request):
@@ -103,10 +104,59 @@ from django.db.models import Max
 from rest_framework.exceptions import PermissionDenied
 
 
+# ---------------------------------------------------------------------
+# USER MANAGEMENT (Admin only)
+# ---------------------------------------------------------------------
+class IsStaffApplicationAdmin(permissions.BasePermission):
+    """Require Django staff status and the application admin role."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_staff
+            and getattr(user, "role", None) == "admin"
+        )
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsDAMAdmin]
+    permission_classes = [IsStaffApplicationAdmin]
+
+    def perform_update(self, serializer):
+        target = serializer.instance
+
+        if target.is_superuser and not self.request.user.is_superuser:
+            raise PermissionDenied(
+                "Only a superuser can change a superuser account."
+            )
+
+        if target.pk == self.request.user.pk and (
+            serializer.validated_data.get("role", target.role) != "admin"
+            or not serializer.validated_data.get(
+                "is_active", target.is_active
+            )
+        ):
+            raise PermissionDenied(
+                "You cannot remove your own administrator access."
+            )
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.pk == self.request.user.pk:
+            raise PermissionDenied(
+                "You cannot delete your own administrator account."
+            )
+
+        if instance.is_superuser and not self.request.user.is_superuser:
+            raise PermissionDenied(
+                "Only a superuser can delete a superuser account."
+            )
+
+        instance.delete()
 
     def perform_update(self, serializer):
         target = serializer.instance
