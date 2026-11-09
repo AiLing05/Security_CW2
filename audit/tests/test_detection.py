@@ -62,8 +62,9 @@ class MassDeletionDetectionTests(AuditTestCase):
         ids = []
         for i in range(5):
             response = self.client.post(
-                "/api/assets/", {"title": f"a{i}", "file": self.png(f"a{i}.png")}, format="multipart"
+                "/api/assets/", {"title": f"a{i}", "file": self.png(f"a{i}.png"), "category_id": self.category.pk}, format="multipart"
             )
+            self.assertEqual(response.status_code, 201, response.content)
             ids.append(response.data["id"])
         for pk in ids:
             self.client.delete(f"/api/assets/{pk}/")
