@@ -1,4 +1,4 @@
-# SoftwareEngineeringGroupProject
+# Security Enhancements for Digital Asset Management System
 
 Digital Asset Management System (Django + Next.js + PostgreSQL)
 
