@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from audit.models import SecurityEvent
+from assets.models import Category
 
 User = get_user_model()
 PASSWORD = "Str0ng-Test-Passw0rd!"
@@ -29,6 +30,7 @@ class AuditTestCase(TestCase):
         self.admin = User.objects.create_superuser("admin1", "admin1@example.com", PASSWORD)
         self.editor = User.objects.create_user("editor1", "editor1@example.com", PASSWORD, role="editor")
         self.viewer = User.objects.create_user("viewer1", "viewer1@example.com", PASSWORD, role="viewer")
+        self.category = Category.objects.create(name="Test images")
         self.client = APIClient(REMOTE_ADDR="203.0.113.10")
 
     def login(self, username, password=PASSWORD, ip="203.0.113.10"):
