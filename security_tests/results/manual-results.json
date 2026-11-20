@@ -1,0 +1,292 @@
+[
+ {
+  "id": "M01",
+  "owasp": "A01",
+  "title": "Anonymous user lists assets",
+  "expected": "401",
+  "result": "FAIL",
+  "status": 200,
+  "evidence": "{\"count\":2,\"next\":null,\"previous\":null,\"results\":[{\"id\":2,\"title\":\"Admin asset\",\"description\":\"owned by admin\",\"file\":\"/",
+  "owner": "Ruth/Ashwin"
+ },
+ {
+  "id": "M02",
+  "owasp": "A01",
+  "title": "Anonymous user reads asset detail",
+  "expected": "401",
+  "result": "FAIL",
+  "status": 200,
+  "evidence": "{\"id\":2,\"title\":\"Admin asset\",\"description\":\"owned by admin\",\"file\":\"/media/assets/brand.png\",\"uploaded_at\":\"2026-10-24T",
+  "owner": "Ruth/Ashwin"
+ },
+ {
+  "id": "M03",
+  "owasp": "A01",
+  "title": "Anonymous user downloads stored file via /media/",
+  "expected": "401/403",
+  "result": "FAIL",
+  "status": 200,
+  "evidence": "GET /media/assets/brand.png -> 72 bytes",
+  "owner": "Ai Ling/Jiae"
+ },
+ {
+  "id": "M04",
+  "owasp": "A01",
+  "title": "Viewer approves a version via PUT (bypasses admin-only PATCH)",
+  "expected": "403",
+  "result": "FAIL",
+  "status": 400,
+  "evidence": "{\"file\":[\"No file was submitted.\"]}",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M05",
+  "owasp": "A01",
+  "title": "Viewer deletes another user's asset version",
+  "expected": "403",
+  "result": "FAIL",
+  "status": 204,
+  "evidence": "",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M06",
+  "owasp": "A01",
+  "title": "Editor edits an asset owned by admin (IDOR / horizontal)",
+  "expected": "403",
+  "result": "FAIL",
+  "status": 415,
+  "evidence": "{\"detail\":\"Unsupported media type \\\"application/json\\\" in request.\"}",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M07",
+  "owasp": "A01",
+  "title": "Viewer deletes a tag",
+  "expected": "403",
+  "result": "FAIL",
+  "status": 204,
+  "evidence": "",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M08",
+  "owasp": "A01",
+  "title": "Editor promotes own role to admin (vertical escalation)",
+  "expected": "403",
+  "result": "PASS",
+  "status": 403,
+  "evidence": "{\"detail\":\"You do not have permission to perform this action.\"}",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M09",
+  "owasp": "A01",
+  "title": "role=admin user without is_staff manages users (role model consistency)",
+  "expected": "200",
+  "result": "FAIL",
+  "status": 403,
+  "evidence": "{\"detail\":\"You do not have permission to perform this action.\"}",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M10",
+  "owasp": "A01",
+  "title": "Viewer reads security audit log",
+  "expected": "403",
+  "result": "PASS",
+  "status": 403,
+  "evidence": "{\"detail\":\"Only administrators can view security audit data.\"}",
+  "owner": "Yu Sheng"
+ },
+ {
+  "id": "M11",
+  "owasp": "A01",
+  "title": "Viewer lists all users (PII exposure)",
+  "expected": "403",
+  "result": "PASS",
+  "status": 403,
+  "evidence": "{\"detail\":\"You do not have permission to perform this action.\"}",
+  "owner": "Ruth"
+ },
+ {
+  "id": "M12",
+  "owasp": "A02",
+  "title": "Tampered JWT payload (role/user_id changed, old signature)",
+  "expected": "401",
+  "result": "PASS",
+  "status": 401,
+  "evidence": "{\"detail\":\"Given token not valid for any token type\",\"code\":\"token_not_valid\",\"messages\":[{\"token_class\":\"AccessToken\",\"",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M13",
+  "owasp": "A02",
+  "title": "JWT with alg=none",
+  "expected": "401",
+  "result": "PASS",
+  "status": 401,
+  "evidence": "{\"detail\":\"Given token not valid for any token type\",\"code\":\"token_not_valid\",\"messages\":[{\"token_class\":\"AccessToken\",\"",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M14",
+  "owasp": "A03",
+  "title": "SQL injection payload in search parameter",
+  "expected": "200, no SQL error, no extra rows",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "{\"count\":0,\"next\":null,\"previous\":null,\"results\":[]}",
+  "owner": "Ai Ling"
+ },
+ {
+  "id": "M15",
+  "owasp": "A03",
+  "title": "SQL injection in ordering parameter",
+  "expected": "ignored/400, no SQL error",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "{\"count\":2,\"next\":null,\"previous\":null,\"results\":[{\"id\":2,\"title\":\"Admin asset\",\"description\":\"owned",
+  "owner": "Ai Ling"
+ },
+ {
+  "id": "M16",
+  "owasp": "A03",
+  "title": "Stored XSS payload in category name",
+  "expected": "rejected or encoded",
+  "result": "FAIL",
+  "status": 201,
+  "evidence": "{\"id\":2,\"name\":\"<script>alert('xss')</script>\"}",
+  "owner": "Ai Ling"
+ },
+ {
+  "id": "M17",
+  "owasp": "A03",
+  "title": "Upload HTML file with script (stored XSS via /media/)",
+  "expected": "rejected (400)",
+  "result": "FAIL",
+  "status": 201,
+  "evidence": "served as text/html",
+  "owner": "Ai Ling"
+ },
+ {
+  "id": "M18",
+  "owasp": "A01",
+  "title": "Path traversal in upload filename",
+  "expected": "name sanitised",
+  "result": "PASS",
+  "status": 201,
+  "evidence": "/media/assets/evil.png",
+  "owner": "Ai Ling"
+ },
+ {
+  "id": "M19",
+  "owasp": "A05",
+  "title": "Unknown URL reveals debug page / URL patterns",
+  "expected": "generic 404",
+  "result": "FAIL",
+  "status": 404,
+  "evidence": "debug page shown",
+  "owner": "Jiae"
+ },
+ {
+  "id": "M20",
+  "owasp": "A05",
+  "title": "Security response headers present",
+  "expected": "all present",
+  "result": "FAIL",
+  "status": 200,
+  "evidence": "missing: ['Strict-Transport-Security', 'Content-Security-Policy']",
+  "owner": "Jiae"
+ },
+ {
+  "id": "M21",
+  "owasp": "A05",
+  "title": "CORS allows untrusted origin",
+  "expected": "no ACAO for evil origin",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "ACAO=None",
+  "owner": "Jiae"
+ },
+ {
+  "id": "M22",
+  "owasp": "A02",
+  "title": "Transport encryption (HTTPS) on API",
+  "expected": "HTTPS only",
+  "result": "FAIL",
+  "status": 200,
+  "evidence": "served over plain HTTP",
+  "owner": "Jiae"
+ },
+ {
+  "id": "M23",
+  "owasp": "A07",
+  "title": "Brute force: 20 wrong passwords in a row",
+  "expected": "429 / lockout before 20",
+  "result": "FAIL",
+  "status": 401,
+  "evidence": "codes=[401]",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M24",
+  "owasp": "A07",
+  "title": "Account enumeration via login response",
+  "expected": "identical response",
+  "result": "PASS",
+  "status": 401,
+  "evidence": "same=True",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M25",
+  "owasp": "A07",
+  "title": "Weak password accepted on user creation",
+  "expected": "400",
+  "result": "FAIL",
+  "status": 201,
+  "evidence": "{\"id\":6,\"username\":\"weak1792817863\",\"first_name\":\"\",\"last_name\":\"\",\"email\":\"\",\"role\":\"viewer\"}",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M26",
+  "owasp": "A07",
+  "title": "Logout revokes refresh token",
+  "expected": "logout 2xx, refresh then 401",
+  "result": "FAIL",
+  "status": 404,
+  "evidence": "logout=404, refresh-after=200",
+  "owner": "Ashwin"
+ },
+ {
+  "id": "M27",
+  "owasp": "A09",
+  "title": "Brute force (M23) detected and alerted",
+  "expected": "BRUTE_FORCE_SUSPECTED",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "alerts=['ACCESS_PROBING_SUSPECTED', 'BRUTE_FORCE_SUSPECTED', 'CREDENTIAL_STUFFING_SUSPECTED']",
+  "owner": "Yu Sheng"
+ },
+ {
+  "id": "M28",
+  "owasp": "A09",
+  "title": "Denied requests (M04-M11) recorded with user and IP",
+  "expected": ">0 ACCESS_DENIED",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "count=271",
+  "owner": "Yu Sheng"
+ },
+ {
+  "id": "M29",
+  "owasp": "A09",
+  "title": "Audit chain intact after attack traffic",
+  "expected": "intact",
+  "result": "PASS",
+  "status": 200,
+  "evidence": "{\"intact\": true, \"records_checked\": 558, \"first_invalid_id\": null}",
+  "owner": "Yu Sheng"
+ }
+]

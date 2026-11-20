@@ -1,0 +1,111 @@
+Run started:2026-10-24 04:54:14.757125+00:00
+
+Test results:
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'authentication'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: audit\services.py:30:4
+29	    "LOGOUT": "authentication",
+30	    "TOKEN": "authentication",
+31	    "RATE": "authentication",
+32	    "PASSWORD": "authentication",
+33	    "ACCESS_DENIED": "authorization",
+34	    "ASSET": "asset",
+35	    "VERSION": "asset",
+36	    "CATEGORY": "admin",
+37	    "TAG": "admin",
+38	    "USER": "admin",
+39	    "ROLE": "admin",
+40	    "PRIVILEGE": "admin",
+41	    "ACCOUNT": "admin",
+42	    "AUDIT": "audit",
+43	}
+44	DETECTION_EVENTS = {
+45	    EventType.BRUTE_FORCE_SUSPECTED,
+46	    EventType.CREDENTIAL_STUFFING_SUSPECTED,
+47	    EventType.ACCESS_PROBING_SUSPECTED,
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'authentication'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: audit\services.py:32:4
+31	    "RATE": "authentication",
+32	    "PASSWORD": "authentication",
+33	    "ACCESS_DENIED": "authorization",
+34	    "ASSET": "asset",
+35	    "VERSION": "asset",
+36	    "CATEGORY": "admin",
+37	    "TAG": "admin",
+38	    "USER": "admin",
+39	    "ROLE": "admin",
+40	    "PRIVILEGE": "admin",
+41	    "ACCOUNT": "admin",
+42	    "AUDIT": "audit",
+43	}
+44	DETECTION_EVENTS = {
+45	    EventType.BRUTE_FORCE_SUSPECTED,
+46	    EventType.CREDENTIAL_STUFFING_SUSPECTED,
+47	    EventType.ACCESS_PROBING_SUSPECTED,
+48	    EventType.MASS_DELETION_SUSPECTED,
+49	}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: audit\signals.py:128:4
+127	        info["size_bytes"] = field_file.size
+128	    except Exception:
+129	        pass
+130	    return info
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'django-insecure-vz+y07(ytyoa#4snwm+&2_m=djq064h^*u!#m#f9+^ati$9*72'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: dam_backend\settings.py:21:13
+20	# Quick-start development settings - unsuitable for production
+21	SECRET_KEY = "django-insecure-vz+y07(ytyoa#4snwm+&2_m=djq064h^*u!#m#f9+^ati$9*72"
+22	DEBUG = True
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'dam_password'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: dam_backend\settings.py:82:8
+81	        "USER": "dam_user",
+82	        "PASSWORD": "dam_password",
+83	        "HOST": "localhost",
+84	        "PORT": "5432",
+85	    }
+86	}
+87	
+88	# Password validation
+89	AUTH_PASSWORD_VALIDATORS = [
+90	    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 1965
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 5
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 4
+		High: 1
+Files skipped (0):

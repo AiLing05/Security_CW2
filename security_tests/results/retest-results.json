@@ -1,0 +1,128 @@
+[
+ {
+  "id": "R01",
+  "title": "Anonymous user cannot list assets",
+  "status": 401,
+  "detail": "b'{\"detail\":\"Authentication credentials were not provided.\"}'",
+  "result": "PASS"
+ },
+ {
+  "id": "R02",
+  "title": "Anonymous user cannot open a stored file by direct URL",
+  "status": 404,
+  "detail": "/media/assets/6eb465d40dee4b12ab5cd1d1a9867ee1.png",
+  "result": "PASS"
+ },
+ {
+  "id": "R03",
+  "title": "Viewer cannot approve a version (PUT)",
+  "status": 403,
+  "detail": "b'{\"detail\":\"You do not have permission to perform this action'",
+  "result": "PASS"
+ },
+ {
+  "id": "R04",
+  "title": "Viewer cannot delete another user's version",
+  "status": 403,
+  "detail": "b'{\"detail\":\"You do not have permission to perform this action'",
+  "result": "PASS"
+ },
+ {
+  "id": "R05",
+  "title": "Editor cannot edit an asset owned by admin",
+  "status": 403,
+  "detail": "b'{\"detail\":\"You do not have permission to perform this action'",
+  "result": "PASS"
+ },
+ {
+  "id": "R06",
+  "title": "Viewer cannot delete a tag",
+  "status": 403,
+  "detail": "b'{\"detail\":\"You do not have permission to perform this action'",
+  "result": "PASS"
+ },
+ {
+  "id": "R07",
+  "title": "Editor cannot promote own role to admin",
+  "status": 403,
+  "detail": "b'{\"detail\":\"You do not have permission to perform this action'",
+  "result": "PASS"
+ },
+ {
+  "id": "R08",
+  "title": "HTML file with script is rejected on upload",
+  "status": 400,
+  "detail": "b'{\"file\":[\"This file type is not supported. Please select a s'",
+  "result": "PASS"
+ },
+ {
+  "id": "R09",
+  "title": "Script payload in category name is rejected",
+  "status": 400,
+  "detail": "b'{\"name\":{\"name\":\"Category name contains invalid characters. '",
+  "result": "PASS"
+ },
+ {
+  "id": "R10",
+  "title": "Unknown URL gives a generic 404 (no debug page)",
+  "status": 404,
+  "detail": "generic",
+  "result": "PASS"
+ },
+ {
+  "id": "R11",
+  "title": "Security headers present (nosniff, frame deny, HSTS, referrer)",
+  "status": 200,
+  "detail": "missing=[]",
+  "result": "PASS"
+ },
+ {
+  "id": "R12",
+  "title": "Plain HTTP request is redirected to HTTPS",
+  "status": 301,
+  "detail": "https://127.0.0.1:8011/api/assets/",
+  "result": "PASS"
+ },
+ {
+  "id": "R13",
+  "title": "Weak password is rejected on user creation",
+  "status": 400,
+  "detail": "b'{\"password\":[\"This password is too short. It must contain at'",
+  "result": "PASS"
+ },
+ {
+  "id": "R14",
+  "title": "Logout revokes the refresh token",
+  "status": 200,
+  "detail": "logout=200, refresh-after=401",
+  "result": "PASS"
+ },
+ {
+  "id": "R15",
+  "title": "Viewer cannot read the audit log",
+  "status": 403,
+  "detail": "b'{\"detail\":\"Only administrators can view security audit data.'",
+  "result": "PASS"
+ },
+ {
+  "id": "R16",
+  "title": "Login rate limit: 6th wrong attempt gets 429",
+  "status": 429,
+  "detail": "codes=[401, 401, 401, 401, 401, 429, 429, 429]",
+  "result": "PASS"
+ },
+ {
+  "id": "R17",
+  "title": "Brute-force attack raised an alert (429s counted)",
+  "status": 200,
+  "detail": "['BRUTE_FORCE_SUSPECTED']",
+  "result": "PASS"
+ },
+ {
+  "id": "R18",
+  "title": "Audit hash chain intact after attack traffic",
+  "status": 200,
+  "detail": "{\"intact\": true, \"records_checked\": 27, \"first_invalid_id\": null}",
+  "result": "PASS"
+ }
+]

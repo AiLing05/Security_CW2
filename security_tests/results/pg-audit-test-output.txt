@@ -1,0 +1,55 @@
+python manage.py test audit  (PostgreSQL 18, 2026-11-19)
+Found 51 test(s).
+  Applying token_blacklist.0013_alter_blacklistedtoken_options_and_more...test_forbidden_request_recorded_with_user (audit.tests.test_capture.AccessControlEventTests.test_forbidden_request_recorded_with_user) ... ok
+test_unauthenticated_request_recorded (audit.tests.test_capture.AccessControlEventTests.test_unauthenticated_request_recorded) ... ok
+test_category_and_tag_changes_recorded (audit.tests.test_capture.AdministrationEventTests.test_category_and_tag_changes_recorded) ... ok
+test_login_bookkeeping_not_logged_as_user_update (audit.tests.test_capture.AdministrationEventTests.test_login_bookkeeping_not_logged_as_user_update) ... ok
+test_password_change_recorded_without_hash (audit.tests.test_capture.AdministrationEventTests.test_password_change_recorded_without_hash) ... ok
+test_role_escalation_recorded_as_high_severity (audit.tests.test_capture.AdministrationEventTests.test_role_escalation_recorded_as_high_severity) ... ok
+test_user_deletion_keeps_history (audit.tests.test_capture.AdministrationEventTests.test_user_deletion_keeps_history) ... ok
+test_upload_recorded_with_actor_and_file (audit.tests.test_capture.AssetEventTests.test_upload_recorded_with_actor_and_file) ... ok
+test_version_content_replacement_recorded (audit.tests.test_capture.AssetEventTests.test_version_content_replacement_recorded) ... ok
+test_version_submit_and_approval_recorded (audit.tests.test_capture.AssetEventTests.test_version_submit_and_approval_recorded) ... ok
+test_view_and_delete_recorded (audit.tests.test_capture.AssetEventTests.test_view_and_delete_recorded) ... ok
+test_failed_login_recorded_for_existing_and_unknown_accounts (audit.tests.test_capture.AuthenticationEventTests.test_failed_login_recorded_for_existing_and_unknown_accounts) ... ok
+test_invalid_refresh_token_recorded (audit.tests.test_capture.AuthenticationEventTests.test_invalid_refresh_token_recorded) ... ok
+test_rate_limited_response_recorded (audit.tests.test_capture.AuthenticationEventTests.test_rate_limited_response_recorded) ... ok
+test_successful_login_recorded_with_user_role_and_ip (audit.tests.test_capture.AuthenticationEventTests.test_successful_login_recorded_with_user_role_and_ip) ... ok
+test_admin_can_read_all_endpoints (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_admin_can_read_all_endpoints) ... ok
+test_admin_viewing_audit_log_is_logged (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_admin_viewing_audit_log_is_logged) ... ok
+test_anonymous_gets_401 (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_anonymous_gets_401) ... ok
+test_denied_dashboard_access_is_itself_logged (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_denied_dashboard_access_is_itself_logged) ... ok
+test_no_write_operations_even_for_admin (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_no_write_operations_even_for_admin) ... ok
+test_staff_flag_without_admin_role_is_not_enough (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_staff_flag_without_admin_role_is_not_enough) ... ok
+test_viewer_and_editor_get_403 (audit.tests.test_dashboard_api.DashboardAccessControlTests.test_viewer_and_editor_get_403) ... ok
+test_event_list_filtering (audit.tests.test_dashboard_api.DashboardContentTests.test_event_list_filtering) ... ok
+test_integrity_endpoint_reports_intact_chain (audit.tests.test_dashboard_api.DashboardContentTests.test_integrity_endpoint_reports_intact_chain) ... ok
+test_summary_counts_and_trend (audit.tests.test_dashboard_api.DashboardContentTests.test_summary_counts_and_trend) ... ok
+test_dry_run_deletes_nothing (audit.tests.test_dashboard_api.RetentionTests.test_dry_run_deletes_nothing) ... ok
+test_purge_removes_only_expired_records_and_logs_itself (audit.tests.test_dashboard_api.RetentionTests.test_purge_removes_only_expired_records_and_logs_itself) ... ok
+test_refuses_dangerously_short_retention (audit.tests.test_dashboard_api.RetentionTests.test_refuses_dangerously_short_retention) ... ok
+test_repeated_forbidden_requests_raise_alert (audit.tests.test_detection.AccessProbingDetectionTests.test_repeated_forbidden_requests_raise_alert) ... ok
+test_attempts_blocked_by_login_throttle_still_count (audit.tests.test_detection.BruteForceDetectionTests.test_attempts_blocked_by_login_throttle_still_count) ... ok
+test_credential_stuffing_across_many_accounts_from_one_ip (audit.tests.test_detection.BruteForceDetectionTests.test_credential_stuffing_across_many_accounts_from_one_ip) ... ok
+test_failures_from_different_ips_tracked_separately (audit.tests.test_detection.BruteForceDetectionTests.test_failures_from_different_ips_tracked_separately) ... ok
+test_five_failures_raise_one_high_severity_alert (audit.tests.test_detection.BruteForceDetectionTests.test_five_failures_raise_one_high_severity_alert) ... ok
+test_four_failures_do_not_alert (audit.tests.test_detection.BruteForceDetectionTests.test_four_failures_do_not_alert) ... ok
+test_bulk_asset_deletion_raises_critical_alert (audit.tests.test_detection.MassDeletionDetectionTests.test_bulk_asset_deletion_raises_critical_alert) ... ok
+test_existing_record_cannot_be_saved_again (audit.tests.test_integrity.AppendOnlyTests.test_existing_record_cannot_be_saved_again) ... ok
+test_queryset_update_and_delete_blocked (audit.tests.test_integrity.AppendOnlyTests.test_queryset_update_and_delete_blocked) ... ok
+test_record_cannot_be_deleted (audit.tests.test_integrity.AppendOnlyTests.test_record_cannot_be_deleted) ... ok
+test_each_record_links_to_previous_hash (audit.tests.test_integrity.HashChainTests.test_each_record_links_to_previous_hash) ... ok
+test_raw_sql_tampering_is_detected (audit.tests.test_integrity.HashChainTests.test_raw_sql_tampering_is_detected) ... skipped 'PostgreSQL blocks the raw UPDATE itself (see trigger test)'
+test_verify_command_reports_intact_chain (audit.tests.test_integrity.HashChainTests.test_verify_command_reports_intact_chain) ... ok
+test_raw_delete_rejected_by_database (audit.tests.test_integrity.PostgresTriggerTests.test_raw_delete_rejected_by_database) ... ok
+test_raw_update_rejected_by_database (audit.tests.test_integrity.PostgresTriggerTests.test_raw_update_rejected_by_database) ... ok
+test_truncate_rejected_by_database (audit.tests.test_integrity.PostgresTriggerTests.test_truncate_rejected_by_database) ... ok
+test_access_and_refresh_tokens_never_stored (audit.tests.test_sanitization.NoSecretsEndToEndTests.test_access_and_refresh_tokens_never_stored) ... ok
+test_failed_login_never_stores_the_password (audit.tests.test_sanitization.NoSecretsEndToEndTests.test_failed_login_never_stores_the_password) ... ok
+test_file_log_contains_no_password (audit.tests.test_sanitization.NoSecretsEndToEndTests.test_file_log_contains_no_password) ... ok
+test_crlf_log_injection_is_neutralised (audit.tests.test_sanitization.SanitizeUnitTests.test_crlf_log_injection_is_neutralised) ... ok
+test_jwt_inside_free_text_is_redacted (audit.tests.test_sanitization.SanitizeUnitTests.test_jwt_inside_free_text_is_redacted) ... ok
+test_long_values_are_truncated (audit.tests.test_sanitization.SanitizeUnitTests.test_long_values_are_truncated) ... ok
+test_sensitive_keys_are_redacted (audit.tests.test_sanitization.SanitizeUnitTests.test_sensitive_keys_are_redacted) ... ok
+Ran 51 tests in 10.341s
+OK (skipped=1)
